@@ -1,0 +1,1 @@
+"""Som Energia integration."""
