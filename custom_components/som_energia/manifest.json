@@ -1,6 +1,6 @@
 {
   "domain": "som_energia",
-  "name": "Som Energia integration.",
+  "name": "Som Energia integration",
   "documentation": "https://www.example.com",
   "dependencies": [],
   "codeowners": ["@hectorespert"],

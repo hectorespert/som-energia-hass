@@ -1,0 +1,9 @@
+{
+  "name": "Som Energia integration",
+  "country": "ES",
+  "domains": [
+    "sensor"
+  ],
+  "content_in_root" : true,
+  "render_readme": true
+}
