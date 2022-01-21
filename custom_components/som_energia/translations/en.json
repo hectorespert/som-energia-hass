@@ -4,20 +4,13 @@
             "already_configured": "Device is already configured"
         },
         "error": {
-            "cannot_connect": "Failed to connect",
-            "invalid_auth": "Invalid authentication",
-            "unknown": "Unexpected error"
         },
         "step": {
             "user": {
                 "data": {
-                    "host": "Host",
-                    "password": "Password",
-                    "username": "Username",
-                    "verify": "Verify TLS certificate"
                 }
             }
         }
     },
-    "title": "Reef-PI integration"
+    "title": "Som Energia integration"
 }
