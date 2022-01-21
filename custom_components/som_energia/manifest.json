@@ -6,5 +6,6 @@
   "codeowners": ["@hectorespert"],
   "requirements": [],
   "iot_class": "calculated",
-  "version": "2022.01.18"
+  "version": "2022.01.18",
+  "config_flow": true
 }

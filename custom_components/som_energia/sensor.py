@@ -4,6 +4,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 
+
 class ElectricityPriceSensor(SensorEntity):
     """Class to hold the prices of electricity as a sensor."""
 
