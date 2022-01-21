@@ -1,1 +1,3 @@
-# som-energia-hass
+# Som Energia for Home Assistant
+
+## Installation

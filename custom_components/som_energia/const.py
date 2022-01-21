@@ -1,1 +1,1 @@
-DOMAIN = 'som_energia'
+DOMAIN = "som_energia"

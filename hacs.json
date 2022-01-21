@@ -1,8 +1,9 @@
 {
-  "name": "Som Energia integration",
+  "name": "Som Energia",
+  "render_readme": true,
+  "iot_class": "calculated",
   "country": "ES",
   "domains": [
     "sensor"
-  ],
-  "render_readme": true
+  ]
 }

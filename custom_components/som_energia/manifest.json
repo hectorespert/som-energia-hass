@@ -1,11 +1,11 @@
 {
-  "domain": "som_energia",
-  "name": "Som Energia integration",
-  "documentation": "https://www.example.com",
-  "dependencies": [],
   "codeowners": ["@hectorespert"],
-  "requirements": [],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/hectorespert/som-energia-hass",
+  "domain": "som_energia",
   "iot_class": "calculated",
-  "version": "2022.01.21",
-  "config_flow": true
+  "name": "Som Energia",
+  "requirements": [],
+  "version": "2022.01.21"
 }

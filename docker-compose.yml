@@ -5,7 +5,7 @@ services:
     image: "ghcr.io/home-assistant/home-assistant:stable"
     volumes:
       - /etc/localtime:/etc/localtime:ro
-      - ./custom_components/ide:/config/custom_components/som_energia:ro
+      - ./custom_components/som_energia:/config/custom_components/som_energia:ro
       - /config
     ports:
       - "8123:8123"
