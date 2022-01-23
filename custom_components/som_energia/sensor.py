@@ -11,7 +11,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
 from homeassistant.util import utcnow
-from pytz import timezone
+
+from custom_components.som_energia.price import price
 
 
 async def async_setup_entry(
@@ -19,9 +20,9 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    async_add_entities([ElectricityPriceSensor()], False)
+    async_add_entities([ElectricityPriceSensor()], True)
 
-SCAN_INTERVAL = timedelta(minutes=15)
+SCAN_INTERVAL = timedelta(minutes=1)
 
 
 class ElectricityPriceSensor(SensorEntity):
@@ -37,20 +38,13 @@ class ElectricityPriceSensor(SensorEntity):
             native_unit_of_measurement=f"{CURRENCY_EURO}/{ENERGY_KILO_WATT_HOUR}",
             state_class=SensorStateClass.MEASUREMENT,
         )
-        self._state = 0
+        self._state = None
 
     @property
     def native_value(self) -> StateType:
         """Return the state of the sensor."""
-        datetime = utcnow().astimezone(timezone('Europe/Madrid'))
-        weekday = datetime.isoweekday()
-        if weekday == 6 or weekday == 7:
-            return 0.262
-        hour = datetime.hour
-        if 0 <= hour < 8:
-            return 0.262
-        elif 8 <= hour < 10 or 14 <= hour < 18 or 22 <= hour < 24:
-            return 0.320
-        else:
-            return 0.407
+        return self._state
 
+    async def async_update(self):
+        """Fetch new state data for the sensor."""
+        self._state = price(utcnow())
