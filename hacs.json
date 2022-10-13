@@ -1,7 +1,6 @@
 {
   "name": "Som Energia",
   "render_readme": true,
-  "iot_class": "calculated",
   "country": "ES",
   "domains": [
     "sensor"
