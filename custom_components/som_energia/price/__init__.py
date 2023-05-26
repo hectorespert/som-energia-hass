@@ -15,9 +15,9 @@ holidays = [
 ]
 
 prices = {
-    "punta": 0.358735,
-    "llano": 0.288204,
-    "valle": 0.241994
+    "punta": 0.295,
+    "llano": 0.237,
+    "valle": 0.199
 }
 
 
@@ -36,3 +36,7 @@ def price(current_datetime: datetime) -> float:
         return prices['llano']
     else:
         return prices['punta']
+
+
+def compensation(current_datetime: datetime) -> float:
+    return 0.130
