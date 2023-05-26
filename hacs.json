@@ -1,8 +1,5 @@
 {
   "name": "Som Energia",
   "render_readme": true,
-  "country": "ES",
-  "domains": [
-    "sensor"
-  ]
+  "country": "ES"
 }
