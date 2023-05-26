@@ -36,3 +36,7 @@ def price(current_datetime: datetime) -> float:
         return prices['llano']
     else:
         return prices['punta']
+
+
+def compensation(current_datetime: datetime) -> float:
+    return 0.130

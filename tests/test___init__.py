@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from custom_components.som_energia.price import price
+from custom_components.som_energia.price import price, compensation
 
 
 def test_price_on_monday():
@@ -31,3 +31,8 @@ def test_price_on_sunday():
 def test_price_on_holiday():
     holiday = datetime(2023, 1, 6, 16, 57, 0)
     assert price(holiday) == 0.241994
+
+
+def test_compensation():
+    monday = datetime(2022, 1, 24, 0, 0, 0)
+    assert compensation(monday) == 0.130
