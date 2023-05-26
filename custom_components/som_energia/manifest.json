@@ -6,7 +6,7 @@
   "dependencies": [],
   "documentation": "https://github.com/hectorespert/som-energia-hass",
   "integration_type": "hub",
-  "iot_class": "calculate",
+  "iot_class": "calculated",
   "issue_tracker": "https://github.com/hectorespert/som-energia-hass/issuess",
   "loggers": [],
   "requirements": [],
