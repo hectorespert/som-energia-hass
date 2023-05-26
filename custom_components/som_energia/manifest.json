@@ -1,15 +1,10 @@
 {
   "domain": "som_energia",
   "name": "Som Energia",
-  "after_dependencies": [],
   "codeowners": ["@hectorespert"],
-  "dependencies": [],
   "documentation": "https://github.com/hectorespert/som-energia-hass",
   "integration_type": "hub",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/hectorespert/som-energia-hass/issuess",
-  "loggers": [],
-  "requirements": [],
-  "quality_scale": "platinum",
   "version": "2023.05.26"
 }
