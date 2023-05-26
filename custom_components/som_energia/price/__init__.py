@@ -15,9 +15,9 @@ holidays = [
 ]
 
 prices = {
-    "punta": 0.415889,
-    "llano": 0.341710,
-    "valle": 0.284556
+    "punta": 0.358735,
+    "llano": 0.288204,
+    "valle": 0.241994
 }
 
 
