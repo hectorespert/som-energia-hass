@@ -11,18 +11,56 @@ holidays = [
     '2023-11-01',
     '2022-12-30',
     '2023-12-08',
-    '2023-12-25'
+    '2023-12-25',
+    '2024-01-06',
 ]
 
-prices = {
-    "punta": 0.295,
-    "llano": 0.237,
-    "valle": 0.199
+pricesTable = {
+    ("2024-01-01", "2999-12-31"): {
+        "punta": 0.247,
+        "llano": 0.189,
+        "valle": 0.154,
+        "compensation": 0.070
+    },
+    ("2023-05-01", "2023-12-31"): {
+        "punta": 0.295,
+        "llano": 0.237,
+        "valle": 0.199,
+        "compensation": 0.130
+    },
+    ("2023-01-01", "2023-04-30"): {
+        "punta": 0.342,
+        "llano": 0.281,
+        "valle": 0.234,
+        "compensation": 0.0
+    }
+    # TODO: Add 2022 periods
+    ,
+    ("2022-01-01", "2022-01-31"): {
+        "punta": 0.396,
+        "llano": 0.286,
+        "valle": 0.228,
+        "compensation": 0.0
+    }
+
 }
 
 
 def price(current_datetime: datetime) -> float:
-    timezone_datetime = current_datetime.astimezone(timezone('Europe/Madrid'))
+    tz = timezone("Europe/Madrid")
+    timezone_datetime = current_datetime.astimezone(tz)
+    prices = {
+        "punta": 0.0,
+        "llano": 0.0,
+        "valle": 0.0,
+    }
+    for period, periodPrices in pricesTable.items():
+        pricesPeriodStart = tz.localize(datetime.datetime.strptime(period[0], "%Y-%m-%d"))
+        pricesPeriodEnd = tz.localize(datetime.datetime.strptime(period[1], "%Y-%m-%d")).replace(hour=23, minute=59, second=59, microsecond=999999)
+        if pricesPeriodStart <= timezone_datetime <= pricesPeriodEnd:
+            prices = periodPrices
+            break
+
     date = timezone_datetime.strftime("%Y-%m-%d")
     if date in holidays:
         return prices['valle']
@@ -39,4 +77,13 @@ def price(current_datetime: datetime) -> float:
 
 
 def compensation(current_datetime: datetime) -> float:
-    return 0.130
+    tz = timezone("Europe/Madrid")
+    timezone_datetime = current_datetime.astimezone(tz)
+    price = 0
+    for period, periodPrices in pricesTable.items():
+        pricesPeriodStart = tz.localize(datetime.datetime.strptime(period[0], "%Y-%m-%d"))
+        pricesPeriodEnd = tz.localize(datetime.datetime.strptime(period[1], "%Y-%m-%d")).replace(hour=23, minute=59, second=59, microsecond=999999)
+        if pricesPeriodStart <= timezone_datetime <= pricesPeriodEnd:
+            price = periodPrices['compensation']
+            break
+    return price
