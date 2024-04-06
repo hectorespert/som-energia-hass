@@ -1,0 +1,16 @@
+{
+    "config": {
+        "abort": {
+            "already_configured": "Device is already configured"
+        },
+        "error": {
+        },
+        "step": {
+            "user": {
+                "data": {
+                }
+            }
+        }
+    },
+    "title": "Integración Som Energia"
+}

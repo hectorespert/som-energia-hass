@@ -15,3 +15,8 @@ Then search for Som Energia in *Integrations* section.
 ### Manual
 TODO
 
+## Development
+
+```bash
+docker compose up -d
+```
