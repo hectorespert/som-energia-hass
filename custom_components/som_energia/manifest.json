@@ -7,5 +7,5 @@
   "integration_type": "hub",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/hectorespert/som-energia-hass/issuess",
-  "version": "2023.05.26.1"
+  "version": "2024.12.14"
 }
