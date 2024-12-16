@@ -6,7 +6,7 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ENERGY_KILO_WATT_HOUR, CURRENCY_EURO
+from homeassistant.const import CURRENCY_EURO, UnitOfEnergy
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.typing import StateType
@@ -40,7 +40,7 @@ class ElectricityPriceSensor(SensorEntity):
         self.entity_description = SensorEntityDescription(
             key='electricity_price',
             icon="mdi:currency-eur",
-            native_unit_of_measurement=f"{CURRENCY_EURO}/{ENERGY_KILO_WATT_HOUR}",
+            native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
             state_class=SensorStateClass.MEASUREMENT,
         )
         self._state = None
@@ -64,7 +64,7 @@ class GenerationKWHElectricityPriceSensor(SensorEntity):
         self.entity_description = SensorEntityDescription(
             key='electricity_price',
             icon="mdi:currency-eur",
-            native_unit_of_measurement=f"{CURRENCY_EURO}/{ENERGY_KILO_WATT_HOUR}",
+            native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
             state_class=SensorStateClass.MEASUREMENT,
         )
         self._state = None
@@ -88,7 +88,7 @@ class ElectricityCompensationSensor(SensorEntity):
         self.entity_description = SensorEntityDescription(
             key='electricity_price',
             icon="mdi:currency-eur",
-            native_unit_of_measurement=f"{CURRENCY_EURO}/{ENERGY_KILO_WATT_HOUR}",
+            native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
             state_class=SensorStateClass.MEASUREMENT,
         )
         self._state = None
