@@ -52,7 +52,7 @@ class ElectricityPriceSensor(SensorEntity):
 
     async def async_update(self):
         """Fetch new state data for the sensor."""
-        self._state = price(utcnow())
+        self._state = await price(utcnow())
 
 class GenerationKWHElectricityPriceSensor(SensorEntity):
     """Class to hold the prices of electricity as a sensor."""
@@ -76,7 +76,7 @@ class GenerationKWHElectricityPriceSensor(SensorEntity):
 
     async def async_update(self):
         """Fetch new state data for the sensor."""
-        self._state = price_generation_kwh(utcnow())
+        self._state = await price_generation_kwh(utcnow())
 
 class ElectricityCompensationSensor(SensorEntity):
     """Class to hold the compensation of electricity as a sensor."""
@@ -100,4 +100,4 @@ class ElectricityCompensationSensor(SensorEntity):
 
     async def async_update(self):
         """Fetch new state data for the sensor."""
-        self._state = compensation(utcnow())
+        self._state = await compensation(utcnow())

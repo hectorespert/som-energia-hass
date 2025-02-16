@@ -69,14 +69,14 @@ def _price(current_datetime: datetime, valle, llano, punta) -> float:
     else:
         return prices_of_the_period[punta]
 
-def price(current_datetime: datetime) -> float:
+async def price(current_datetime: datetime) -> float:
     return _price(current_datetime, 'valle', 'llano', 'punta')
 
 
-def price_generation_kwh(current_datetime: datetime) -> float:
+async def price_generation_kwh(current_datetime: datetime) -> float:
     return _price(current_datetime, 'valle_generation_kwh', 'llano_generation_kwh', 'punta_generation_kwh')
 
-def compensation(current_datetime: datetime) -> float:
+async def compensation(current_datetime: datetime) -> float:
     tz = timezone("Europe/Madrid")
     timezone_datetime = current_datetime.astimezone(tz)
     prices_of_the_period = _prices_for_current_period(timezone_datetime, tz)
