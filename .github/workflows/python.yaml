@@ -28,9 +28,15 @@ jobs:
 
       - name: Run pytest
         run: |
-          pytest --cov=./ --cov-report=xml
+          pytest --cov=./ --cov-report=xml --junitxml=junit.xml -o junit_family=legacy        
 
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
