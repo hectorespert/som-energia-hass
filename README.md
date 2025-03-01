@@ -1,5 +1,11 @@
 # Som Energia for Home Assistant
 
+[![HACS Action](https://github.com/hectorespert/som-energia-hass/actions/workflows/hacs.yml/badge.svg)](https://github.com/hectorespert/som-energia-hass/actions/workflows/hacs.yml)
+[![hassfest](https://github.com/hectorespert/som-energia-hass/actions/workflows/hassfest.yaml/badge.svg)](https://github.com/hectorespert/som-energia-hass/actions/workflows/hassfest.yaml)
+[![Python package](https://github.com/hectorespert/som-energia-hass/actions/workflows/python.yaml/badge.svg)](https://github.com/hectorespert/som-energia-hass/actions/workflows/python.yaml)
+[![codecov](https://codecov.io/github/hectorespert/som-energia-hass/graph/badge.svg?token=XJG1KVGBT9)](https://codecov.io/github/hectorespert/som-energia-hass)
+
+
 Integration for Home Assistant of Som Energia.
 
 * Sensor with the information of Som Energia's energy price.
