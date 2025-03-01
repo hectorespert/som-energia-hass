@@ -1,7 +1,7 @@
 services:
   homeassistant:
     container_name: homeassistant
-    image: "ghcr.io/home-assistant/home-assistant:stable"
+    image: "ghcr.io/home-assistant/home-assistant:2025.2.5"
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ./custom_components/som_energia:/config/custom_components/som_energia:ro
