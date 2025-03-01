@@ -1,18 +1,19 @@
+import csv
 import datetime as datetime
 import os
+from asyncio import get_running_loop
 from zoneinfo import ZoneInfo
 
-from aiocsv import AsyncDictReader
-from aiofiles import open
 from aiozoneinfo import async_get_time_zone
 
 from custom_components.som_energia.price.holidays import holidays
 
-async def _read_price_csv() -> dict:
+def _read_price_csv() -> dict:
     file_path = os.path.join(os.path.dirname(__file__), "prices.csv")
     prices_data = {}
-    async with open(file_path, mode='r') as file:
-        async for row in AsyncDictReader(file):
+    with open(file_path) as file:
+        reader = csv.DictReader(file)
+        for row in reader:
             period = (row["Inicio Periodo"], row["Final Periodo"])
             prices_data[period] = {
                 "punta": float(row["Punta"] if row["Punta"] != "" else 0.0),
@@ -28,7 +29,6 @@ async def _read_price_csv() -> dict:
             }
     return prices_data
 
-
 async def _prices_for_current_period(timezone_datetime: datetime, tz: ZoneInfo) -> dict:
     prices_of_the_period = {
         "punta": 0.0,
@@ -39,7 +39,7 @@ async def _prices_for_current_period(timezone_datetime: datetime, tz: ZoneInfo) 
         "llano_generation_kwh": 0.0,
         "valle_generation_kwh": 0.0,
     }
-    for period, prices_of_the_period in (await _read_price_csv()).items():
+    for period, prices_of_the_period in (await get_running_loop().run_in_executor(None, _read_price_csv)).items():
         prices_period_start = datetime.datetime.strptime(period[0], "%Y-%m-%d").replace(tzinfo=tz)
         prices_period_end = datetime.datetime.strptime(period[1], "%Y-%m-%d").replace(
             hour=23, minute=59, second=59, microsecond=999999, tzinfo=tz
