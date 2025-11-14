@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  release:
+    name: Create Release ZIP
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from manifest
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' custom_components/som_energia/manifest.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Create ZIP file
+        run: |
+          cd custom_components
+          zip -r ../som_energia.zip som_energia/ -x "*.pyc" -x "*__pycache__*" -x "*.git*"
+          cd ..
+          echo "Contents of ZIP:"
+          unzip -l som_energia.zip
+
+      - name: Upload ZIP to release
+        uses: softprops/action-gh-release@v2.4.2
+        with:
+          files: som_energia.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update release body with installation instructions
+        uses: softprops/action-gh-release@v2.4.2
+        with:
+          append_body: true
+          body: |
+            
+            ## Instalación Manual
+            
+            1. Descarga el archivo `som_energia.zip` de esta release
+            2. Extrae el contenido en tu directorio `custom_components/som_energia`
+            3. Reinicia Home Assistant
+            4. Añade la integración Som Energia desde la interfaz de configuración
+            
+            ## Instalación con HACS
+            
+            Si usas HACS, la integración se actualizará automáticamente.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
