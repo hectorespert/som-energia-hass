@@ -4,6 +4,7 @@
 [![hassfest](https://github.com/hectorespert/som-energia-hass/actions/workflows/hassfest.yaml/badge.svg)](https://github.com/hectorespert/som-energia-hass/actions/workflows/hassfest.yaml)
 [![Python package](https://github.com/hectorespert/som-energia-hass/actions/workflows/python.yaml/badge.svg)](https://github.com/hectorespert/som-energia-hass/actions/workflows/python.yaml)
 [![codecov](https://codecov.io/github/hectorespert/som-energia-hass/graph/badge.svg?token=XJG1KVGBT9)](https://codecov.io/github/hectorespert/som-energia-hass)
+[![GitHub release](https://img.shields.io/github/v/release/hectorespert/som-energia-hass)](https://github.com/hectorespert/som-energia-hass/releases/latest)
 
 
 Integration for Home Assistant of Som Energia.
@@ -26,15 +27,17 @@ Integration for Home Assistant of Som Energia.
 4. Search for Som Energia in *Integrations* section and configure the integration.
 
 ### Manual
-To install this integration manually you have to download the content of this repository to `config/custom_components/som-energia-hass` directory:
+
+Descarga el archivo `som_energia.zip` de la [última release](https://github.com/hectorespert/som-energia-hass/releases/latest) y extrae el contenido en el directorio `custom_components` de tu instalación de Home Assistant:
+
 ```bash
-mkdir -p custom_components/som-energia-hass
-cd custom_components/som-energia-hass
-curl -s https://api.github.com/repos/hectorespert/som-energia-hass/releases/latest | grep "/som-energia-hass.zip"|cut -d : -f 2,3|tr -d \"| wget -i -
-unzip som-energia-hass.zip
-rm som-energia-hass.zip
+cd config/custom_components
+wget https://github.com/hectorespert/som-energia-hass/releases/latest/download/som_energia.zip
+unzip som_energia.zip
+rm som_energia.zip
 ```
-After that restart Home Assistant and configure the integration.
+
+Después de instalar, reinicia Home Assistant y configura la integración buscando "Som Energia" en la sección de Integraciones.
 
 ## Development
 
