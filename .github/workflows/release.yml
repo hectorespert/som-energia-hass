@@ -5,9 +5,14 @@ on:
     types: [published]
 
 jobs:
+  build-zip:
+    name: Build ZIP
+    uses: ./.github/workflows/build-zip.yml
+
   release:
-    name: Create Release ZIP
+    name: Upload to Release
     runs-on: ubuntu-latest
+    needs: build-zip
     permissions:
       contents: write
     steps:
@@ -21,13 +26,10 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
 
-      - name: Create ZIP file
-        run: |
-          cd custom_components
-          zip -r ../som_energia.zip som_energia/ -x "*.pyc" -x "*__pycache__*" -x "*.git*"
-          cd ..
-          echo "Contents of ZIP:"
-          unzip -l som_energia.zip
+      - name: Download ZIP artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: som_energia-zip
 
       - name: Upload ZIP to release
         uses: softprops/action-gh-release@v2.4.2
