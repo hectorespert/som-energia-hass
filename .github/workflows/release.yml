@@ -57,3 +57,29 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  post-to-bluesky:
+    name: Post to BlueSky
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from manifest
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' custom_components/som_energia/manifest.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Post to BlueSky
+        uses: myConsciousness/bluesky-post@v5
+        with:
+          text: |
+            🎉 Nueva versión de la integración #SomEnergia para #HomeAssistant!
+            
+            📦 Versión ${{ steps.version.outputs.version }}
+            
+            🔗 Descarga: ${{ github.event.release.html_url }}
+          identifier: ${{ secrets.BLUESKY_IDENTIFIER }}
+          password: ${{ secrets.BLUESKY_PASSWORD }}
+
