@@ -1,0 +1,46 @@
+name: Build and Verify ZIP
+
+on:
+  workflow_call:
+    outputs:
+      zip-path:
+        description: "Path to the generated ZIP file"
+        value: ${{ jobs.build-zip.outputs.zip-path }}
+
+jobs:
+  build-zip:
+    name: Build and Verify Integration ZIP
+    runs-on: ubuntu-latest
+    outputs:
+      zip-path: som_energia.zip
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create ZIP file
+        run: |
+          cd custom_components/som_energia
+          zip -r ../../som_energia.zip . -x "*.pyc" -x "*__pycache__*" -x "*.git*"
+          cd ../..
+          echo "Contents of ZIP:"
+          unzip -l som_energia.zip
+
+      - name: Verify ZIP structure
+        run: |
+          echo "Verifying that manifest.json is in the root of the ZIP..."
+          if unzip -l som_energia.zip | grep -q "^[^/]*manifest\.json$"; then
+            echo "✓ manifest.json found in the root of the ZIP"
+          else
+            echo "✗ ERROR: manifest.json is NOT in the root of the ZIP or is inside a folder"
+            echo "ZIP contents:"
+            unzip -l som_energia.zip
+            exit 1
+          fi
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: som_energia-zip
+          path: som_energia.zip
+          retention-days: 5
+

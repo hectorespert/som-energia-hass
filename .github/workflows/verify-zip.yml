@@ -1,0 +1,15 @@
+name: Verify ZIP Build
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  verify-zip:
+    name: Verify Integration ZIP
+    uses: ./.github/workflows/build-zip.yml
+
