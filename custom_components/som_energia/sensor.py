@@ -13,7 +13,7 @@ from homeassistant.helpers.typing import StateType
 from homeassistant.util import utcnow
 
 from custom_components.som_energia.price import price, compensation
-from custom_components.som_energia.price.prices import price_generation_kwh
+from custom_components.som_energia.price.prices import price_generation_kwh, period
 
 
 async def async_setup_entry(
@@ -24,7 +24,8 @@ async def async_setup_entry(
     async_add_entities([
         ElectricityPriceSensor(),
         ElectricityCompensationSensor(),
-        GenerationKWHElectricityPriceSensor()
+        GenerationKWHElectricityPriceSensor(),
+        ElectricityPeriodSensor()
     ], True)
 
 SCAN_INTERVAL = timedelta(minutes=1)
@@ -101,3 +102,26 @@ class ElectricityCompensationSensor(SensorEntity):
     async def async_update(self):
         """Fetch new state data for the sensor."""
         self._state = await compensation(utcnow())
+
+class ElectricityPeriodSensor(SensorEntity):
+    """Class to hold the current electricity tariff period as a sensor."""
+
+    def __init__(self) -> None:
+        """Initialize the sensor."""
+        self._attr_unique_id = 'som_energia_electricity_period'
+        self._attr_name = 'Som Energia electricity period'
+        self.entity_description = SensorEntityDescription(
+            key='electricity_period',
+            icon="mdi:clock-outline",
+        )
+        self._state = None
+
+    @property
+    def native_value(self) -> StateType:
+        """Return the state of the sensor."""
+        return self._state
+
+    async def async_update(self):
+        """Fetch new state data for the sensor."""
+        self._state = await period(utcnow())
+

@@ -151,4 +151,26 @@ async def test_period_on_holiday():
     holiday = datetime(2023, 12, 25, 12, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
     assert await period(holiday) == "P3"
 
+async def test_price_with_utc_timezone():
+    monday_utc = datetime(2022, 1, 24, 7, 0, 0, tzinfo=ZoneInfo("UTC"))
+    assert await price(monday_utc) == 0.286
+
+    monday_utc = datetime(2022, 1, 24, 9, 0, 0, tzinfo=ZoneInfo("UTC"))
+    assert await price(monday_utc) == 0.396
+
+    monday_utc = datetime(2022, 1, 24, 17, 0, 0, tzinfo=ZoneInfo("UTC"))
+    assert await price(monday_utc) == 0.396
+
+async def test_period_with_utc_timezone():
+    monday_utc = datetime(2022, 1, 23, 23, 0, 0, tzinfo=ZoneInfo("UTC"))
+    assert await period(monday_utc) == "P3"
+
+    monday_utc = datetime(2022, 1, 24, 7, 0, 0, tzinfo=ZoneInfo("UTC"))
+    assert await period(monday_utc) == "P2"
+
+    monday_utc = datetime(2022, 1, 24, 9, 0, 0, tzinfo=ZoneInfo("UTC"))
+    assert await period(monday_utc) == "P1"
+
+    monday_utc = datetime(2022, 1, 24, 13, 0, 0, tzinfo=ZoneInfo("UTC"))
+    assert await period(monday_utc) == "P2"
 
