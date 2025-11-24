@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 import pytest
 
 from custom_components.som_energia.price.tariff_holiday import is_tariff_holiday
@@ -35,7 +36,7 @@ HOLIDAYS = [
 
 @pytest.mark.parametrize("date_str", HOLIDAYS)
 def test_is_tariff_holiday_true(date_str: str):
-    dt = datetime.strptime(date_str + ' 12:00:00', '%Y-%m-%d %H:%M:%S')
+    dt = datetime.strptime(date_str + ' 12:00:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=ZoneInfo("Europe/Madrid"))
     assert is_tariff_holiday(dt), f"Should be a holiday: {date_str}"
 
 
@@ -52,11 +53,11 @@ NON_HOLIDAYS = [
 
 @pytest.mark.parametrize("date_str", NON_HOLIDAYS)
 def test_is_tariff_holiday_false(date_str: str):
-    dt = datetime.strptime(date_str + ' 12:00:00', '%Y-%m-%d %H:%M:%S')
+    dt = datetime.strptime(date_str + ' 12:00:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=ZoneInfo("Europe/Madrid"))
     assert not is_tariff_holiday(dt), f"Should not be a holiday: {date_str}"
 
 
 @pytest.mark.parametrize("date_str", ['2023-04-07', '2025-04-18', '2026-04-03'])
 def test_is_tariff_holiday_excluded_good_friday(date_str: str):
-    dt = datetime.strptime(date_str + ' 12:00:00', '%Y-%m-%d %H:%M:%S')
+    dt = datetime.strptime(date_str + ' 12:00:00', '%Y-%m-%d %H:%M:%S').replace(tzinfo=ZoneInfo("Europe/Madrid"))
     assert not is_tariff_holiday(dt), "Good Friday should not be considered a tariff holiday"
