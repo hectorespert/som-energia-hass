@@ -1,5 +1,5 @@
 import csv
-import datetime as datetime
+import datetime
 import os
 from asyncio import get_running_loop
 from zoneinfo import ZoneInfo
@@ -29,7 +29,7 @@ def _read_price_csv() -> dict:
             }
     return prices_data
 
-async def _prices_for_current_period(timezone_datetime: datetime, tz: ZoneInfo) -> dict:
+async def _prices_for_current_period(timezone_datetime: datetime.datetime, tz: ZoneInfo) -> dict:
     prices_of_the_period = {
         "punta": 0.0,
         "llano": 0.0,
@@ -50,32 +50,44 @@ async def _prices_for_current_period(timezone_datetime: datetime, tz: ZoneInfo) 
     return prices_of_the_period
 
 
-async def _price(current_datetime: datetime, valle: str, llano: str, punta: str) -> float:
+async def _price(current_datetime: datetime.datetime, valle: str, llano: str, punta: str) -> float:
     tz = await async_get_time_zone("Europe/Madrid")
     timezone_datetime = current_datetime.astimezone(tz)
     prices_of_the_period = await _prices_for_current_period(timezone_datetime, tz)
-    if is_tariff_holiday(timezone_datetime):
-        return prices_of_the_period[valle]
-    weekday = timezone_datetime.isoweekday()
-    if weekday == 6 or weekday == 7:
-        return prices_of_the_period[valle]
-    hour = timezone_datetime.hour
-    if 0 <= hour < 8:
-        return prices_of_the_period[valle]
-    elif 8 <= hour < 10 or 14 <= hour < 18 or 22 <= hour < 24:
+    current_period = await period(current_datetime)
+    if current_period == "P1":
+        return prices_of_the_period[punta]
+    elif current_period == "P2":
         return prices_of_the_period[llano]
     else:
-        return prices_of_the_period[punta]
+        return prices_of_the_period[valle]
 
-async def price(current_datetime: datetime) -> float:
+async def price(current_datetime: datetime.datetime) -> float:
     return await _price(current_datetime, 'valle', 'llano', 'punta')
 
 
-async def price_generation_kwh(current_datetime: datetime) -> float:
+async def price_generation_kwh(current_datetime: datetime.datetime) -> float:
     return await _price(current_datetime, 'valle_generation_kwh', 'llano_generation_kwh', 'punta_generation_kwh')
 
-async def compensation(current_datetime: datetime) -> float:
+async def compensation(current_datetime: datetime.datetime) -> float:
     tz = await async_get_time_zone("Europe/Madrid")
     timezone_datetime = current_datetime.astimezone(tz)
     prices_of_the_period = await _prices_for_current_period(timezone_datetime, tz)
     return prices_of_the_period['compensation']
+
+async def period(current_datetime: datetime.datetime) -> str:
+    tz = await async_get_time_zone("Europe/Madrid")
+    timezone_datetime = current_datetime.astimezone(tz)
+    if is_tariff_holiday(timezone_datetime):
+        return "P3"
+    weekday = timezone_datetime.isoweekday()
+    if weekday == 6 or weekday == 7:
+        return "P3"
+    hour = timezone_datetime.hour
+    if 0 <= hour < 8:
+        return "P3"
+    elif 8 <= hour < 10 or 14 <= hour < 18 or 22 <= hour < 24:
+        return "P2"
+    else:
+        return "P1"
+
