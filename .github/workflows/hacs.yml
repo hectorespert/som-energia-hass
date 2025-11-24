@@ -2,7 +2,11 @@ name: HACS Action
 
 on:
   push:
+    branches:
+      - master
   pull_request:
+    branches:
+      - master
 
 jobs:
   hacs:
