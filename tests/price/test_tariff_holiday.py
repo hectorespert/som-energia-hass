@@ -53,7 +53,7 @@ NON_HOLIDAYS = [
 @pytest.mark.parametrize("date_str", NON_HOLIDAYS)
 def test_is_tariff_holiday_false(date_str: str):
     dt = datetime.strptime(date_str + ' 12:00:00', '%Y-%m-%d %H:%M:%S')
-    assert not is_tariff_holiday(dt), f"No debería ser festivo: {date_str}"
+    assert not is_tariff_holiday(dt), f"Should not be a holiday: {date_str}"
 
 
 @pytest.mark.parametrize("date_str", ['2023-04-07', '2025-04-18', '2026-04-03'])
