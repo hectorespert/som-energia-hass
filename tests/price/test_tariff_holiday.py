@@ -36,7 +36,7 @@ HOLIDAYS = [
 @pytest.mark.parametrize("date_str", HOLIDAYS)
 def test_is_tariff_holiday_true(date_str: str):
     dt = datetime.strptime(date_str + ' 12:00:00', '%Y-%m-%d %H:%M:%S')
-    assert is_tariff_holiday(dt), f"Debería ser festivo (verdadero): {date_str}"
+    assert is_tariff_holiday(dt), f"Should be a holiday: {date_str}"
 
 
 NON_HOLIDAYS = [
