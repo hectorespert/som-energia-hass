@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo
 
 from aiozoneinfo import async_get_time_zone
 
-from custom_components.som_energia.price.holidays import holidays
+from custom_components.som_energia.price.tariff_holiday import is_tariff_holiday
 
 def _read_price_csv() -> dict:
     file_path = os.path.join(os.path.dirname(__file__), "prices.csv")
@@ -54,9 +54,7 @@ async def _price(current_datetime: datetime, valle: str, llano: str, punta: str)
     tz = await async_get_time_zone("Europe/Madrid")
     timezone_datetime = current_datetime.astimezone(tz)
     prices_of_the_period = await _prices_for_current_period(timezone_datetime, tz)
-
-    date = timezone_datetime.strftime("%Y-%m-%d")
-    if date in holidays:
+    if is_tariff_holiday(timezone_datetime):
         return prices_of_the_period[valle]
     weekday = timezone_datetime.isoweekday()
     if weekday == 6 or weekday == 7:
