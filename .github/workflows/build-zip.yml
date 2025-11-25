@@ -38,7 +38,7 @@ jobs:
           fi
 
       - name: Upload ZIP artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: som_energia-zip
           path: som_energia.zip
