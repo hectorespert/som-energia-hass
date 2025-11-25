@@ -15,11 +15,16 @@ async def test_sensors(hass):
     await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    state = hass.states.get("sensor.som_energia_electricity_price")
+    state = hass.states.get("sensor.som_energia_generation_kwh_electricity_price")
     assert state
     assert state.state > "0.0"
-    assert state.name == "Som Energia electricity price"
+    assert state.name == "Som Energia Generation kWh electricity price"
     assert state.attributes["unit_of_measurement"] == "€/kWh"
+
+    state = hass.states.get("sensor.som_energia_electricity_period")
+    assert state
+    assert state.state in ["P1", "P2", "P3"]
+    assert state.name == "Som Energia electricity period"
 
     state = hass.states.get("sensor.som_energia_electricity_compensation")
     assert state
