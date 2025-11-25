@@ -15,7 +15,7 @@ jobs:
       zip-path: som_energia.zip
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Create ZIP file
         run: |
