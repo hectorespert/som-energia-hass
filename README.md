@@ -21,16 +21,15 @@ Proporciona:
 ### Instalación
 
 #### Usando [HACS](https://hacs.xyz/) (recomendado)
-1. Copia la URL de este repositorio: [https://github.com/hectorespert/som-energia-hass](https://github.com/hectorespert/som-energia-hass)
 
-2. En la sección de HACS, añade este repositorio como uno personalizado:
-   - En el campo "repository" pon la URL copiada anteriormente
-   - En "Category" selecciona "Integration"
-   - Haz clic en el botón "Download" y descarga la última versión.
+[![Abre tu instancia de Home Assistant y abre un repositorio dentro de Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=hectorespert&repository=som-energia-hass&category=Integration)
 
-3. Reinicia HA
-
-4. Busca Som Energia en la sección de *Integraciones* y configura la integración.
+1. Abre HACS en Home Assistant
+2. Ve a la sección de "Integraciones"
+3. Busca "Som Energia" en el buscador
+4. Haz clic en "Descargar" e instala la última versión
+5. Reinicia Home Assistant
+6. Busca Som Energia en la sección de *Integraciones* y configura la integración.
 
 #### Manual
 
@@ -66,16 +65,15 @@ Provides:
 ### Installation
 
 #### Using [HACS](https://hacs.xyz/) (recommended)
-1. Copy this repository URL: [https://github.com/hectorespert/som-energia-hass](https://github.com/hectorespert/som-energia-hass)
 
-2. In the HACS section, add this repository as a custom one:
-   - On the "repository" field put the URL copied before
-   - On the "Category" select "Integration"
-   - Click the "Download" button and download latest version.
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=hectorespert&repository=som-energia-hass&category=Integration)
 
-3. Restart HA
-
-4. Search for Som Energia in *Integrations* section and configure the integration.
+1. Open HACS in Home Assistant
+2. Go to the "Integrations" section
+3. Search for "Som Energia" in the search bar
+4. Click "Download" and install the latest version
+5. Restart Home Assistant
+6. Search for Som Energia in the *Integrations* section and configure the integration.
 
 #### Manual
 
