@@ -32,14 +32,14 @@ jobs:
           name: som_energia-zip
 
       - name: Upload ZIP to release
-        uses: softprops/action-gh-release@v2.4.2
+        uses: softprops/action-gh-release@v2.5.0
         with:
           files: som_energia.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update release body with installation instructions
-        uses: softprops/action-gh-release@v2.4.2
+        uses: softprops/action-gh-release@v2.5.0
         with:
           append_body: true
           body: |
