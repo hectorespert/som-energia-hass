@@ -27,7 +27,7 @@ jobs:
           echo "Version: $VERSION"
 
       - name: Download ZIP artifact
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: som_energia-zip
 
