@@ -3,9 +3,25 @@ updates:
 - package-ecosystem: "github-actions"
   directory: "/"
   schedule:
-    interval: monthly
+    interval: weekly
+
 - package-ecosystem: "pip"
   directory: "/"
   schedule:
     interval: weekly
 
+- package-ecosystem: "docker"
+  directory: "/.devcontainer"
+  schedule:
+    interval: weekly
+  labels:
+    - "dependencies"
+    - "docker"
+
+- package-ecosystem: "devcontainers"
+  directory: "/"
+  schedule:
+    interval: weekly
+  labels:
+    - "dependencies"
+    - "devcontainer"
