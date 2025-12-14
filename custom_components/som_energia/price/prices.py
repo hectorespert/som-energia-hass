@@ -78,7 +78,7 @@ async def compensation(current_datetime: datetime.datetime) -> float:
 async def period(current_datetime: datetime.datetime) -> str:
     tz = await async_get_time_zone("Europe/Madrid")
     timezone_datetime = current_datetime.astimezone(tz)
-    if await is_tariff_holiday(timezone_datetime):
+    if is_tariff_holiday(timezone_datetime):
         return "P3"
     weekday = timezone_datetime.isoweekday()
     if weekday == 6 or weekday == 7:
