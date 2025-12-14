@@ -4,7 +4,7 @@ from holidays import country_holidays
 # Initialize holidays object at module level to avoid blocking import in event loop
 _holidays_in_spain = country_holidays("ES", language="es")
 
-def is_tariff_holiday(timezone_datetime: datetime) -> bool:
+async def is_tariff_holiday(timezone_datetime: datetime) -> bool:
     """Check if the given datetime is a tariff holiday in Spain.
 
     Returns True for Spanish holidays except Good Friday (Viernes Santo),
