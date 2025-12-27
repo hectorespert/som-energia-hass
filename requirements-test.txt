@@ -1,4 +1,4 @@
 pytest
 pytest-cov
 pytest-homeassistant-custom-component
-holidays==0.86
+holidays==0.87
