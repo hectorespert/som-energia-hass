@@ -72,7 +72,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Post to BlueSky
-        uses: myConsciousness/bluesky-post@v5
+        uses: myConsciousness/bluesky-post@v6
         with:
           text: |
             🎉 Nueva versión de la integración #SomEnergia para #HomeAssistant!
