@@ -81,6 +81,25 @@ async def test_price_on_2026_05():
     monday = datetime(2026, 5, 4, 22, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
     assert await price(monday) == 0.150
 
+async def test_price_on_2026_10():
+    monday = datetime(2026, 10, 5, 0, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price(monday) == 0.150
+
+    monday = datetime(2026, 10, 5, 8, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price(monday) == 0.169
+
+    monday = datetime(2026, 10, 5, 10, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price(monday) == 0.249
+
+    monday = datetime(2026, 10, 5, 14, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price(monday) == 0.169
+
+    monday = datetime(2026, 10, 5, 18, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price(monday) == 0.249
+
+    monday = datetime(2026, 10, 5, 22, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price(monday) == 0.169
+
 async def test_price_on_sunday():
     sunday = datetime(2022, 1, 23, 16, 57, 0, tzinfo=ZoneInfo("Europe/Madrid"))
     assert await price(sunday) == 0.228
@@ -104,6 +123,10 @@ async def test_compensation_2024():
 
 async def test_compensation_2026():
     day = datetime(2026, 1, 23, 0, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await compensation(day) == 0.030
+
+async def test_compensation_2026_10():
+    day = datetime(2026, 10, 5, 0, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
     assert await compensation(day) == 0.030
 
 async def test_price_generation_kwh():
@@ -161,6 +184,25 @@ async def test_price_generation_kwh_2026_05():
     assert await price_generation_kwh(monday) == 0.194
 
     monday = datetime(2026, 5, 4, 22, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.124
+
+async def test_price_generation_kwh_2026_10():
+    monday = datetime(2026, 10, 5, 0, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.099
+
+    monday = datetime(2026, 10, 5, 8, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.124
+
+    monday = datetime(2026, 10, 5, 10, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.194
+
+    monday = datetime(2026, 10, 5, 14, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.124
+
+    monday = datetime(2026, 10, 5, 18, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.194
+
+    monday = datetime(2026, 10, 5, 22, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
     assert await price_generation_kwh(monday) == 0.124
 
 async def test_period_on_weekday_valle():
