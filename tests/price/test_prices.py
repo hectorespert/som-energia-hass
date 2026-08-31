@@ -198,7 +198,45 @@ async def test_price_generation_kwh_2022():
     monday = datetime(2022, 1, 24, 10, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
     assert await price_generation_kwh(monday) == 0.236
 
+async def test_price_generation_kwh_2022_02():
+    monday = datetime(2022, 2, 28, 0, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.110
+
+    monday = datetime(2022, 2, 28, 8, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.137
+
+    monday = datetime(2022, 2, 28, 10, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.209
+
+async def test_price_generation_kwh_2022_04():
+    monday = datetime(2022, 4, 4, 0, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.109
+
+    monday = datetime(2022, 4, 4, 8, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.132
+
+    monday = datetime(2022, 4, 4, 10, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.183
+
+async def test_price_generation_kwh_2022_06():
+    monday = datetime(2022, 6, 6, 0, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.096
+
+    monday = datetime(2022, 6, 6, 8, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.120
+
     monday = datetime(2022, 6, 6, 10, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.170
+
+async def test_price_generation_kwh_2022_10():
+    # Punta and llano match the June row; only valle tells the two periods apart.
+    monday = datetime(2022, 10, 3, 0, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.095
+
+    monday = datetime(2022, 10, 3, 8, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price_generation_kwh(monday) == 0.120
+
+    monday = datetime(2022, 10, 3, 10, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
     assert await price_generation_kwh(monday) == 0.170
 
 async def test_price_generation_kwh_2023():
