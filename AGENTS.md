@@ -6,8 +6,8 @@ Guidance for AI coding agents (Claude Code, Copilot, Codex, …) working in this
 
 [TODO.md](TODO.md) tracks the open defects, deprecations and supply-chain risks in this
 codebase, ranked. Read it before trusting anything here: it documents, among others, a
-coverage-config bug that makes the reported 100% coverage false, and a price-lookup
-fallback that silently returns the wrong row.
+coverage-config bug that makes the reported 100% coverage false, and an unpinned
+`holidays` dependency that Good Friday detection depends on by display name.
 
 ## What this is
 

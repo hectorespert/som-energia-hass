@@ -277,6 +277,24 @@ async def test_price_generation_kwh_2026_10():
     monday = datetime(2026, 10, 5, 22, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
     assert await price_generation_kwh(monday) == 0.124
 
+async def test_price_before_the_first_price_period():
+    before = datetime(2019, 6, 12, 12, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price(before) is None
+    assert await price_generation_kwh(before) is None
+    assert await compensation(before) is None
+
+    before = datetime(2021, 12, 31, 23, 59, 59, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price(before) is None
+    assert await price_generation_kwh(before) is None
+    assert await compensation(before) is None
+
+
+async def test_price_on_the_first_second_of_the_first_price_period():
+    first = datetime(2022, 1, 1, 0, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price(first) == 0.228
+    assert await compensation(first) == 0.000
+
+
 async def test_period_on_weekday_valle():
     monday = datetime(2022, 1, 24, 0, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
     assert await period(monday) == "P3"
