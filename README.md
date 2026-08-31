@@ -50,6 +50,8 @@ Después de instalar, reinicia Home Assistant y configura la integración buscan
 docker compose up -d
 ```
 
+Consulta [AGENTS.md](AGENTS.md) para la guía de desarrollo: comandos de tests, arquitectura del código y convenciones del proyecto.
+
 ---
 
 ## Documentation
@@ -93,3 +95,6 @@ After installing, restart Home Assistant and configure the integration by search
 ```bash
 docker compose up -d
 ```
+
+See [AGENTS.md](AGENTS.md) for the development guide: test commands, code architecture and project conventions.
+    
