@@ -173,13 +173,37 @@ the devcontainer still run current HA.
 
 ## Deprecations
 
-### 6. Outdated config-flow and platform typing
+### 6. ~~Outdated config-flow and platform typing~~ — fixed
 
-- `config_flow.py` annotates `async_step_user` as returning `FlowResult`, which is now
-  the generic base class; config flows should return `ConfigFlowResult`.
-- `sensor.py:11,22` uses `AddEntitiesCallback`; the config-entry form is
-  `AddConfigEntryEntitiesCallback`.
-- `const.py` should use `[Platform.SENSOR]` rather than the bare string `["sensor"]`.
+Verified against Home Assistant 2025.11.3, installed in `.venv`:
+
+```
+homeassistant.config_entries.ConfigFlowResult            exists
+homeassistant.helpers.entity_platform.AddConfigEntryEntitiesCallback   exists
+homeassistant.const.Platform.SENSOR                       exists, value 'sensor'
+```
+
+`config_flow.py` annotated `async_step_user` as returning
+`homeassistant.data_entry_flow.FlowResult`, the untyped base every flow result dict
+inherits from. `homeassistant.config_entries.ConfigFlowResult` is the config-flow-specific
+subtype and is now what HA's own `ConfigFlow` methods return, so `async_step_user` returns
+it too.
+
+`sensor.py` took `async_add_entities` as `AddEntitiesCallback`, the generic
+`EntityPlatform.add_entities` protocol. `AddConfigEntryEntitiesCallback` is the config-entry
+variant — same call shape plus a keyword-only `config_subentry_id` — and matches what
+`async_setup_entry` actually receives from the config-entry setup path.
+
+`const.py` listed `PLATFORMS = ["sensor"]` as a bare string; it is now
+`[Platform.SENSOR]`, an enum member rather than a string the caller has to get right by
+convention.
+
+All three are typing-only changes: no runtime behaviour differs, since `Platform.SENSOR ==
+"sensor"` and `ConfigFlowResult`/`AddConfigEntryEntitiesCallback` are `TypedDict`/`Protocol`
+declarations with no runtime footprint. `tests/test_init.py` (setup, unload, reload) and
+`tests/test_config_flow.py` (form step, entry creation, single-instance abort) exercise the
+same code paths and stayed green with no changes; full suite: 114 tests, 157 statements,
+0 missed, 100% coverage, `excluded_lines` empty.
 
 ### 7. The unique-id hack predates `single_config_entry`
 
