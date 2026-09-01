@@ -12,5 +12,21 @@
     "abort": {
       "already_configured": "Device is already configured"
     }
+  },
+  "entity": {
+    "sensor": {
+      "price": {
+        "name": "Electricity price"
+      },
+      "price_generation_kwh": {
+        "name": "Generation kWh price"
+      },
+      "compensation": {
+        "name": "Surplus compensation"
+      },
+      "period": {
+        "name": "Tariff period"
+      }
+    }
   }
 }

@@ -1,2 +1,4 @@
+from homeassistant.const import Platform
+
 DOMAIN = "som_energia"
-PLATFORMS = ["sensor"]
+PLATFORMS = [Platform.SENSOR]

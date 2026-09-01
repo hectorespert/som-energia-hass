@@ -12,5 +12,21 @@
             }
         }
     },
+    "entity": {
+        "sensor": {
+            "price": {
+                "name": "Precio de la electricidad"
+            },
+            "price_generation_kwh": {
+                "name": "Precio Generación kWh"
+            },
+            "compensation": {
+                "name": "Compensación de excedentes"
+            },
+            "period": {
+                "name": "Periodo tarifario"
+            }
+        }
+    },
     "title": "Integración Som Energia"
 }
