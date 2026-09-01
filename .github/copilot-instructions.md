@@ -52,9 +52,12 @@ value and the test asserts the wrong thing while still passing.
 ## Tests
 
 `pytest.ini` sets `asyncio_mode = auto`, so tests are `async def` with no
-`@pytest.mark.asyncio`. `pytest.ini` also takes precedence over the `[tool:pytest]`
-section in `setup.cfg`, so that section's `--strict` and `--cov` addopts never apply and
-coverage flags must be passed explicitly.
+`@pytest.mark.asyncio`. It sets no addopts, so coverage flags must be passed explicitly;
+`setup.cfg` holds only the `[coverage:*]` sections.
+
+Entries under `[coverage:report] exclude_lines` are regexes matched as substrings, and
+coverage drops the entire clause under a match. Flag any unanchored pattern added there —
+one of them previously hid the whole config flow while the total still reported 100%.
 
 Price and period tests are written as explicit datetime → expected-value assertions.
 Follow that style rather than introducing parametrisation.
@@ -63,5 +66,4 @@ Follow that style rather than introducing parametrisation.
 
 `TODO.md` tracks the known open defects, deprecations and supply-chain risks, ranked.
 Check it before flagging something as new — several known issues are deliberate or already
-scheduled, and one of them explains why the reported coverage percentage is not
-trustworthy.
+scheduled, and the entries struck through in that file are already fixed.

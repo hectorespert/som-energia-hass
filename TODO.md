@@ -10,25 +10,34 @@ inference. Line references are against `master` at the time of writing.
 
 ## Critical — verified defects
 
-### 1. The coverage config hides the entire config flow, and the 100% badge is false
+### 1. ~~The coverage config hides the entire config flow, and the 100% badge is false~~ — fixed
 
-`setup.cfg:10` lists `main()` under `[coverage:report] exclude_lines`. Those entries are
-**regexes**, so `main()` reads as "the substring `main` followed by an empty group" — and
-it matches `domain=DOMAIN` in `class SomEnergiaConfigFlow(ConfigFlow, domain=DOMAIN)`.
-Coverage therefore excludes that line *and the whole class body under it*.
+`setup.cfg` listed `main()` under `[coverage:report] exclude_lines`. Those entries are
+**regexes**, so `main()` read as "the substring `main` followed by an empty group" — and it
+matched `domain=DOMAIN` in `class SomEnergiaConfigFlow(ConfigFlow, domain=DOMAIN)`. Coverage
+excludes by *clause*, so the match took the whole class body with it: every statement in
+`async_step_user` was unexecuted, reported as neither covered nor missing, and the total
+still read 100% — which is what the Codecov badge reported.
 
 ```
-$ pytest --cov=custom_components --cov-report=json
-config_flow.py  excluded_lines: [14, 15, ..., 26]   # all of async_step_user
-TOTAL 100%
+                    config_flow.py               TOTAL
+before        7 stmts, 0 miss, excluded 14..26     100%   <- false
+regex fixed  15 stmts, 5 miss, excluded none        97%   <- honest, 21-26 uncovered
+plus tests   15 stmts, 0 miss, excluded none       100%   <- earned
 ```
 
-Every statement in `async_step_user` is unexecuted, reported as neither covered nor
-missing, and the total still reads 100% — which is also what the Codecov badge reports.
+That line was the only one in `custom_components` matching any of the four patterns. The
+`main()` entry is gone, and `raise NotImplemented()` went with it — malformed (it is
+`NotImplementedError`), unanchored, and matching nothing; it is now
+`raise NotImplementedError`. `pragma: no cover` stays, because defining `exclude_lines`
+*replaces* coverage's default rather than extending it. `tests/test_config_flow.py` covers
+the form step, entry creation and the single-instance abort, so the total is back to a
+genuine 100% with zero excluded lines.
 
-**Fix:** anchor the pattern (`^\s*main\(\)$`) or drop it entirely; the neighbouring
-`if __name__ == '__main__':` entry already covers the real intent. Expect coverage to
-drop once the config flow becomes visible — see item 7.
+A second inflator, not part of the original finding: CI ran `pytest --cov=./`, which
+overrode `[coverage:run] source = custom_components` and counted the 344 statements of test
+code — 100% covered by definition — alongside the integration, reporting 99%. It now runs
+`--cov=custom_components`.
 
 ### 2. `async_unload_entry` never unloads the sensor platform
 
@@ -111,8 +120,9 @@ postdates it. Verify the true minimum and raise the declaration.
 `"single_config_entry": true` in `manifest.json`, which expresses the same intent
 declaratively.
 
-There is also **no config-flow test at all** — item 1 explains why that went unnoticed.
-Add one covering the form step, entry creation, and the single-instance abort.
+`tests/test_config_flow.py` now covers the form step, entry creation and the
+single-instance abort (see item 1), so the switch to `single_config_entry` has a
+regression net to land against.
 
 ## Quality
 
@@ -134,13 +144,14 @@ and blocks deriving translation keys from `key`.
 handling and validation. None of the entities set `device_info`, so an integration
 declaring `integration_type: hub` produces four ungrouped entities.
 
-### 10. No lint or security gate in CI, and one dead config section
+### 10. No lint or security gate in CI
 
 - `tests/bandit.yaml` exists but no workflow runs bandit.
 - `setup.cfg` configures flake8, isort and mypy that nothing invokes.
-- `pytest.ini` takes precedence over `setup.cfg`'s `[tool:pytest]`, so that section's
-  `--strict` and `--cov=custom_components` addopts never apply. Its `[coverage:*]`
-  sections *are* live, which is what makes item 1 bite.
+
+The dead `[tool:pytest]` section that used to sit in `setup.cfg` — shadowed by
+`pytest.ini` — was removed with item 1. `pytest.ini` is now the only pytest config;
+`setup.cfg`'s `[coverage:*]` sections remain live.
 
 ### 11. The CSV and the holidays table are rebuilt on every sensor update
 

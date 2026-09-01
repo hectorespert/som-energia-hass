@@ -28,7 +28,7 @@ jobs:
 
       - name: Run pytest
         run: |
-          pytest --cov=./ --cov-report=xml --junitxml=junit.xml -o junit_family=legacy        
+          pytest --cov=custom_components --cov-report=xml --junitxml=junit.xml -o junit_family=legacy        
 
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v7
