@@ -457,6 +457,36 @@ Success: no issues found in 8 source files
 
 `excluded_lines` in the coverage report and the mypy override list are now both empty.
 
+### 13. ~~The sensor test asserted a price with a string comparison~~ — fixed
+
+`tests/test_sensor.py` checked the three price sensors with `state.state > "0.0"`. State
+values are strings, so that compared lexicographically. For real prices the two agree, which
+is why it went unnoticed — but not for a sensor with no value:
+
+```
+state         > "0.0" (str)   float(...) > 0.0
+0.249         True            True
+0.0           False           False
+-0.05         False           False
+unknown       True            ValueError   <- disagree
+unavailable   True            ValueError   <- disagree
+```
+
+`"unknown" > "0.0"` is `True` because `u` sorts after `0`. So the assertion passed on
+exactly the failure it existed to catch — the `unknown` state that item 3 introduced when a
+date matches no CSV row. Deleting the matching branch of `_prices_for_current_period`, which
+leaves all three price sensors `unknown`, left `test_sensors` green:
+
+```
+before  1 passed   <- blind
+after   1 failed   ValueError: could not convert str to float: 'unknown'
+```
+
+Now `float(state.state) > 0.0`. The period sensor was never affected: it asserts
+`state.state in ["P1", "P2", "P3"]`, which is a string comparison on purpose.
+
+Found by Copilot reviewing #79. It predates that PR — the assertion came from the original
+test file — so it was left out of #79's scope rather than folded in silently.
 ### 14. ~~`tests/bandit.yaml` listed two checks bandit no longer has~~ — fixed
 
 The profile named `B320` and `B325`, which bandit dropped. Every run since item 10 wired
