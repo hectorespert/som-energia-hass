@@ -1,7 +1,7 @@
+from asyncio import get_running_loop
 import csv
 import datetime
 import os
-from asyncio import get_running_loop
 
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util.dt import async_get_time_zone
@@ -9,6 +9,7 @@ from homeassistant.util.dt import async_get_time_zone
 from custom_components.som_energia.price.tariff_holiday import is_tariff_holiday
 
 TIME_ZONE = "Europe/Madrid"
+
 
 def _read_price_csv() -> dict:
     file_path = os.path.join(os.path.dirname(__file__), "prices.csv")
@@ -41,6 +42,7 @@ async def _madrid_time(current_datetime: datetime.datetime) -> datetime.datetime
         raise HomeAssistantError(f"Time zone {TIME_ZONE} is not available")
     return current_datetime.astimezone(tz)
 
+
 async def _prices_for_current_period(timezone_datetime: datetime.datetime) -> dict | None:
     prices_data = await get_running_loop().run_in_executor(None, _read_price_csv)
     tz = timezone_datetime.tzinfo
@@ -67,6 +69,7 @@ async def _price(current_datetime: datetime.datetime, valle: str, llano: str, pu
     else:
         return prices_of_the_period[valle]
 
+
 async def price(current_datetime: datetime.datetime) -> float | None:
     return await _price(current_datetime, 'valle', 'llano', 'punta')
 
@@ -74,12 +77,14 @@ async def price(current_datetime: datetime.datetime) -> float | None:
 async def price_generation_kwh(current_datetime: datetime.datetime) -> float | None:
     return await _price(current_datetime, 'valle_generation_kwh', 'llano_generation_kwh', 'punta_generation_kwh')
 
+
 async def compensation(current_datetime: datetime.datetime) -> float | None:
     timezone_datetime = await _madrid_time(current_datetime)
     prices_of_the_period = await _prices_for_current_period(timezone_datetime)
     if prices_of_the_period is None:
         return None
     return prices_of_the_period['compensation']
+
 
 async def period(current_datetime: datetime.datetime) -> str:
     timezone_datetime = await _madrid_time(current_datetime)

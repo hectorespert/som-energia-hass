@@ -1,9 +1,9 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
 import pytest
 
 from custom_components.som_energia.price.tariff_holiday import is_tariff_holiday
-
 
 HOLIDAYS = [
     # Every tariff year in full. The calendar is a closed list of nine fixed

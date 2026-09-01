@@ -1,3 +1,10 @@
 pytest
 pytest-cov
 pytest-homeassistant-custom-component
+flake8
+isort
+bandit
+# mypy>=2.0 ships mypyc-compiled wheels that need librt>=0.13, but some
+# pytest-homeassistant-custom-component releases pin librt==0.2.1 exactly; staying on
+# the 1.x series keeps both installable together (mypy 1.x has no librt dependency).
+mypy<2

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-import voluptuous as vol
 from homeassistant.config_entries import ConfigFlow, ConfigFlowResult
+import voluptuous as vol
 
 from .const import DOMAIN
 

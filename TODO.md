@@ -355,10 +355,43 @@ device-prefixed) name — `test_existing_entity_ids_survive_setup_and_reload` co
 pre-registering the pre-item-8 `entity_id`s, setting up, reloading, and asserting they
 survive both times, now with the device attached.
 
-### 10. No lint or security gate in CI
+### 10. ~~No lint or security gate in CI~~ — fixed
 
-- `tests/bandit.yaml` exists but no workflow runs bandit.
-- `setup.cfg` configures flake8, isort and mypy that nothing invokes.
+`tests/bandit.yaml` existed but no workflow ran bandit, and `setup.cfg` configured
+flake8, isort and mypy that nothing invoked. A new `.github/workflows/lint.yaml` now
+runs all four, blocking, on Python 3.13 — matching the bump `python.yaml` is getting in
+a separate, prior PR, made necessary because Home Assistant now requires
+`python_requires >= 3.13`; a 3.12 runner was quietly resolving to
+`pytest-homeassistant-custom-component==0.13.205` (`homeassistant==2025.1.4`) instead of
+current HA.
+
+flake8 and bandit ran clean as soon as they were wired in. isort's `[isort]` section had
+`not_skip = __init__.py`, an option isort removed some releases back; current isort
+refuses to start with it present (`isort.exceptions.UnsupportedSettings`), so it's gone.
+`sections` also listed `INBETWEENS` with no `known_inbetweens` defined, which does
+nothing but prints a `UserWarning` on every run; `INBETWEENS` is gone from `sections`
+too, restoring isort's default section order (nothing was ever assigned to it, so this
+changes no import's placement).
+
+`[mypy]` had `python_version = 3.7`, which current mypy rejects outright, and
+`ignore_errors = true`, which made it check nothing. Fixed to `python_version = 3.13`,
+which now also matches the runner (see above). It would have had to be 3.13 regardless:
+Home Assistant's installed source uses PEP 696 generic defaults
+(`config_entries.py:384`), and mypy must parse that syntax to resolve `ConfigEntry`'s
+type even though `follow_imports = silent` suppresses *errors* from it — parsing happens
+under whatever `python_version` is set, and 3.12 can't parse that syntax at all.
+`check_untyped_defs` and `disallow_untyped_defs`
+are new — without them mypy skips the body of any function missing a full signature,
+which made the bare `ignore_errors = true` config and a merely-syntax-valid one behave
+almost the same in practice. Turning both on surfaced a real bug class: all four sensor
+classes did `self._state = None` in `__init__` with no annotation, so mypy inferred the
+attribute's type as `None` and flagged every later `self._state = await price(...)` as
+an incompatible assignment. Fixed with an explicit `self._state: float | None = None`
+(three sensors) and `self._state: str | None = None` (`ElectricityPeriodSensor`), plus
+`-> None` on the four `async_update` methods, which had no return annotation.
+
+One module was deliberately excluded from the mypy gate rather than fixed; item 6 landed
+first, so the exclusion was removed before this branch merged — see item 12.
 
 The dead `[tool:pytest]` section that used to sit in `setup.cfg` — shadowed by
 `pytest.ini` — was removed with item 1. `pytest.ini` is now the only pytest config;
@@ -392,3 +425,34 @@ Two caveats for whoever picks this up:
 - `_read_price_csv` currently returns a fresh dict each call. Cached, every caller shares
   one object, so it must not be mutated. Nothing mutates it today, but nothing enforces it
   either.
+
+### 12. ~~`config_flow.py` is excluded from the mypy gate~~ — fixed before merge
+
+`setup.cfg` carried a `[mypy-custom_components.som_energia.config_flow]` section with
+`ignore_errors = true`, opting the module out of the check the rest of `custom_components`
+runs under. Applying the gate's config to it reported:
+
+```
+config_flow.py:19: error: Return type "Coroutine[Any, Any, FlowResult[FlowContext, str]]"
+  of "async_step_user" incompatible with return type "Coroutine[Any, Any, ConfigFlowResult]"
+  in supertype "homeassistant.config_entries.ConfigFlow"  [override]
+config_flow.py:22: error: Incompatible return value type (got "ConfigFlowResult",
+  expected "FlowResult[FlowContext, str]")  [return-value]
+config_flow.py:26: error: Incompatible return value type (got "ConfigFlowResult",
+  expected "FlowResult[FlowContext, str]")  [return-value]
+```
+
+That was item 6's `FlowResult` → `ConfigFlowResult` finding, at the time queued on a
+separate branch actively rewriting the same file. Excluding rather than fixing avoided a
+duplicate, colliding edit.
+
+Item 6 landed first, so the override was deleted before this branch merged and the module
+went back into the gate. mypy passes on it with no exclusions, and the run covers the code
+as it stands after items 6 to 9 — `DeviceInfo`, `translation_key` and the enum sensor
+included, none of which existed when the gate was first written:
+
+```
+Success: no issues found in 8 source files
+```
+
+`excluded_lines` in the coverage report and the mypy override list are now both empty.

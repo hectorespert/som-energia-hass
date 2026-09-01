@@ -15,8 +15,8 @@ from homeassistant.helpers.typing import StateType
 from homeassistant.util import utcnow
 
 from custom_components.som_energia.const import DOMAIN
-from custom_components.som_energia.price import price, compensation
-from custom_components.som_energia.price.prices import price_generation_kwh, period
+from custom_components.som_energia.price import compensation, price
+from custom_components.som_energia.price.prices import period, price_generation_kwh
 
 
 async def async_setup_entry(
@@ -56,16 +56,17 @@ class ElectricityPriceSensor(SensorEntity):
             native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
             state_class=SensorStateClass.MEASUREMENT,
         )
-        self._state = None
+        self._state: float | None = None
 
     @property
     def native_value(self) -> StateType:
         """Return the state of the sensor."""
         return self._state
 
-    async def async_update(self):
+    async def async_update(self) -> None:
         """Fetch new state data for the sensor."""
         self._state = await price(utcnow())
+
 
 class GenerationKWHElectricityPriceSensor(SensorEntity):
     """Class to hold the prices of electricity as a sensor."""
@@ -83,16 +84,17 @@ class GenerationKWHElectricityPriceSensor(SensorEntity):
             native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
             state_class=SensorStateClass.MEASUREMENT,
         )
-        self._state = None
+        self._state: float | None = None
 
     @property
     def native_value(self) -> StateType:
         """Return the state of the sensor."""
         return self._state
 
-    async def async_update(self):
+    async def async_update(self) -> None:
         """Fetch new state data for the sensor."""
         self._state = await price_generation_kwh(utcnow())
+
 
 class ElectricityCompensationSensor(SensorEntity):
     """Class to hold the compensation of electricity as a sensor."""
@@ -110,16 +112,17 @@ class ElectricityCompensationSensor(SensorEntity):
             native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
             state_class=SensorStateClass.MEASUREMENT,
         )
-        self._state = None
+        self._state: float | None = None
 
     @property
     def native_value(self) -> StateType:
         """Return the state of the sensor."""
         return self._state
 
-    async def async_update(self):
+    async def async_update(self) -> None:
         """Fetch new state data for the sensor."""
         self._state = await compensation(utcnow())
+
 
 class ElectricityPeriodSensor(SensorEntity):
     """Class to hold the current electricity tariff period as a sensor."""
@@ -137,14 +140,13 @@ class ElectricityPeriodSensor(SensorEntity):
             device_class=SensorDeviceClass.ENUM,
             options=["P1", "P2", "P3"],
         )
-        self._state = None
+        self._state: str | None = None
 
     @property
     def native_value(self) -> StateType:
         """Return the state of the sensor."""
         return self._state
 
-    async def async_update(self):
+    async def async_update(self) -> None:
         """Fetch new state data for the sensor."""
         self._state = await period(utcnow())
-
