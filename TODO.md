@@ -276,12 +276,54 @@ sensor.som_energia_electricity_period                  -> sensor.tariff_period (
 Only new installs are affected — see the PR that fixed this item for the full
 compatibility writeup.
 
-### 9. The period sensor should be an enum, and the entities have no device
+### 9. ~~The period sensor should be an enum, and the entities have no device~~ — fixed
 
-`ElectricityPeriodSensor` returns one of exactly three values, so it should declare
-`SensorDeviceClass.ENUM` with `options=["P1", "P2", "P3"]` — this gives correct UI
-handling and validation. None of the entities set `device_info`, so an integration
-declaring `integration_type: hub` produces four ungrouped entities.
+`ElectricityPeriodSensor.entity_description` now sets `device_class=SensorDeviceClass.ENUM`
+and `options=["P1", "P2", "P3"]`. The other three sensors keep `native_unit_of_measurement`
+and `state_class=SensorStateClass.MEASUREMENT`, which the period sensor never had, so
+neither of `SensorEntity.state`'s two checks fires: `NON_NUMERIC_DEVICE_CLASSES` (which
+`ENUM` is a member of) forbids a unit of measurement, and `DEVICE_CLASS_STATE_CLASSES` has
+no entry for `ENUM`, so any `state_class` on it would log a warning — the period sensor sets
+neither, so both are moot, verified by running the suite with `-W error::UserWarning`.
+
+Whether hassfest requires `entity.sensor.period.state.*` translations for the three
+codes was checked empirically against the installed Home Assistant 2025.11.3, not assumed:
+of 127 core `sensor.py` files that set `device_class=SensorDeviceClass.ENUM`, 117 carry a
+`state` block in `strings.json` and 10 don't. The 10 are exactly the ones whose `options`
+are literal codes rather than words — `homewizard`'s `tariff` sensor
+(`options=["1", "2", "3", "4"]`) and `youless`'s `active_tariff`
+(`options=["1", "2"]`) are the closest precedent, both untranslated. `P1`/`P2`/`P3` are
+2.0TD tariff codes, identical in Spanish and English, so no `state` block was added, and
+no `strings.json` / `translations/*.json` edit was needed for this item — the only
+translatable string a device would introduce, the device *name*, is fixed as `"Som
+Energia"` by product decision, not user-facing copy pulled from a translation file.
+
+All four sensors now also set `_attr_device_info` to the same
+`DeviceInfo(identifiers={(DOMAIN, entry.entry_id)}, name="Som Energia",
+manufacturer="Som Energia", entry_type=DeviceEntryType.SERVICE)`, built once in
+`async_setup_entry` and passed to each sensor's constructor. `tests/test_sensor.py`
+now has `test_entities_are_grouped_under_one_device`, which asserts all four entities
+share one device with those exact fields (and `model`/`configuration_url` both `None`).
+
+Adding a device changes `entity_id` generation for **new** installs a second time, because
+`_attr_has_entity_name` with a device prefixes the *device* name ahead of the translated
+entity name — measured by running the suite, not assumed:
+
+```
+new install, no device (item 8)   sensor.electricity_price (en) / sensor.precio_de_la_electricidad (es)
+new install, with device (item 9) sensor.som_energia_electricity_price (en) / sensor.som_energia_precio_de_la_electricidad (es)
+```
+
+and the `friendly_name` gains the "Som Energia " prefix too: `"Electricity price"` becomes
+`"Som Energia Electricity price"`, `"Precio de la electricidad"` becomes `"Som Energia
+Precio de la electricidad"`. `tests/test_sensor.py::test_sensors` and
+`::test_sensor_names_are_translated_to_spanish` pin both locales down.
+
+**Existing installations are unaffected**, because `_attr_unique_id` did not change and HA
+looks entities up by `unique_id`, not by recomputing `entity_id` from the (now
+device-prefixed) name — `test_existing_entity_ids_survive_setup_and_reload` covers this by
+pre-registering the pre-item-8 `entity_id`s, setting up, reloading, and asserting they
+survive both times, now with the device attached.
 
 ### 10. No lint or security gate in CI
 

@@ -1,6 +1,7 @@
 from datetime import timedelta
 
 from homeassistant.components.sensor import (
+    SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
     SensorStateClass,
@@ -8,10 +9,12 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CURRENCY_EURO, UnitOfEnergy
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.typing import StateType
 from homeassistant.util import utcnow
 
+from custom_components.som_energia.const import DOMAIN
 from custom_components.som_energia.price import price, compensation
 from custom_components.som_energia.price.prices import price_generation_kwh, period
 
@@ -21,11 +24,17 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
+    device_info = DeviceInfo(
+        identifiers={(DOMAIN, config_entry.entry_id)},
+        name="Som Energia",
+        manufacturer="Som Energia",
+        entry_type=DeviceEntryType.SERVICE,
+    )
     async_add_entities([
-        ElectricityPriceSensor(),
-        ElectricityCompensationSensor(),
-        GenerationKWHElectricityPriceSensor(),
-        ElectricityPeriodSensor()
+        ElectricityPriceSensor(device_info),
+        ElectricityCompensationSensor(device_info),
+        GenerationKWHElectricityPriceSensor(device_info),
+        ElectricityPeriodSensor(device_info)
     ], True)
 
 SCAN_INTERVAL = timedelta(minutes=1)
@@ -36,9 +45,10 @@ class ElectricityPriceSensor(SensorEntity):
 
     _attr_has_entity_name = True
 
-    def __init__(self) -> None:
+    def __init__(self, device_info: DeviceInfo) -> None:
         """Initialize the sensor."""
         self._attr_unique_id = 'som_energia_electricity_price'
+        self._attr_device_info = device_info
         self.entity_description = SensorEntityDescription(
             key='price',
             translation_key='price',
@@ -62,9 +72,10 @@ class GenerationKWHElectricityPriceSensor(SensorEntity):
 
     _attr_has_entity_name = True
 
-    def __init__(self) -> None:
+    def __init__(self, device_info: DeviceInfo) -> None:
         """Initialize the sensor."""
         self._attr_unique_id = 'som_energia_generation_kwh_electricity_price'
+        self._attr_device_info = device_info
         self.entity_description = SensorEntityDescription(
             key='price_generation_kwh',
             translation_key='price_generation_kwh',
@@ -88,9 +99,10 @@ class ElectricityCompensationSensor(SensorEntity):
 
     _attr_has_entity_name = True
 
-    def __init__(self) -> None:
+    def __init__(self, device_info: DeviceInfo) -> None:
         """Initialize the sensor."""
         self._attr_unique_id = 'som_energia_electricity_compensation'
+        self._attr_device_info = device_info
         self.entity_description = SensorEntityDescription(
             key='compensation',
             translation_key='compensation',
@@ -114,13 +126,16 @@ class ElectricityPeriodSensor(SensorEntity):
 
     _attr_has_entity_name = True
 
-    def __init__(self) -> None:
+    def __init__(self, device_info: DeviceInfo) -> None:
         """Initialize the sensor."""
         self._attr_unique_id = 'som_energia_electricity_period'
+        self._attr_device_info = device_info
         self.entity_description = SensorEntityDescription(
             key='period',
             translation_key='period',
             icon="mdi:clock-outline",
+            device_class=SensorDeviceClass.ENUM,
+            options=["P1", "P2", "P3"],
         )
         self._state = None
 
