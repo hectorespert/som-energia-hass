@@ -508,7 +508,8 @@ async def test_the_price_csv_is_parsed_once_for_many_lookups():
 async def test_the_price_csv_is_never_parsed_on_the_event_loop():
     """Home Assistant patches builtins.open and logs a blocking-call warning for any
     read on the event loop. The warning is non-strict and skipped under tests, so
-    nothing else here would catch the read drifting out of the executor."""
+    nothing else here would catch the read drifting out of the executor. The one read
+    now happens inside the coordinator's first refresh, during setup."""
     loop_thread = threading.current_thread()
     parsing_threads = []
     real_read = prices._read_price_csv
@@ -521,7 +522,7 @@ async def test_the_price_csv_is_never_parsed_on_the_event_loop():
         "custom_components.som_energia.price.prices._read_price_csv",
         new=recording_read,
     ):
-        await prices.async_load_prices()
+        await prices._get_price_table()
 
     assert parsing_threads
     assert loop_thread not in parsing_threads
@@ -563,3 +564,71 @@ def test_the_price_csv_is_read_as_utf8_regardless_of_the_locale():
 
     assert result.returncode == 0, result.stderr
     assert int(result.stdout.strip()) > 0
+
+
+async def test_current_prices_is_one_time_zone_conversion_and_one_table_scan():
+    """A tick across the four sensors used to cost 6 time zone conversions and 3 table
+    scans, because every function converted and scanned for itself — price and
+    price_generation_kwh each called period internally, converting a second time."""
+    monday = datetime(2022, 1, 24, 10, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    counts = {"tz": 0, "scan": 0}
+    real_madrid_time = prices._madrid_time
+    real_prices_for_current_period = prices._prices_for_current_period
+
+    async def counting_madrid_time(current_datetime):
+        counts["tz"] += 1
+        return await real_madrid_time(current_datetime)
+
+    async def counting_prices_for_current_period(timezone_datetime):
+        counts["scan"] += 1
+        return await real_prices_for_current_period(timezone_datetime)
+
+    with patch(
+        "custom_components.som_energia.price.prices._madrid_time",
+        new=counting_madrid_time,
+    ), patch(
+        "custom_components.som_energia.price.prices._prices_for_current_period",
+        new=counting_prices_for_current_period,
+    ):
+        snapshot = await prices.current_prices(monday)
+
+    assert counts == {"tz": 1, "scan": 1}
+    assert snapshot == prices.PriceSnapshot(
+        period="P1",
+        price=0.396,
+        price_generation_kwh=0.236,
+        compensation=0.000,
+    )
+
+
+async def test_current_prices_outside_every_price_period():
+    """The period is a function of the clock alone, so it is still known when no row of
+    prices.csv covers the date; the three prices are not."""
+    before = datetime(2019, 6, 12, 12, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+
+    assert await prices.current_prices(before) == prices.PriceSnapshot(
+        period="P1",
+        price=None,
+        price_generation_kwh=None,
+        compensation=None,
+    )
+
+
+async def test_the_individual_functions_agree_with_the_snapshot():
+    """price, price_generation_kwh and compensation are wrappers over current_prices
+    now. Nothing may drift between what they return and what the sensors publish."""
+    moments = [
+        datetime(2022, 1, 24, 10, 0, 0, tzinfo=ZoneInfo("Europe/Madrid")),  # P1
+        datetime(2026, 1, 5, 9, 0, 0, tzinfo=ZoneInfo("Europe/Madrid")),    # P2
+        datetime(2026, 1, 5, 3, 0, 0, tzinfo=ZoneInfo("Europe/Madrid")),    # P3, valle
+        datetime(2026, 1, 6, 12, 0, 0, tzinfo=ZoneInfo("Europe/Madrid")),   # P3, holiday
+        datetime(2026, 10, 3, 12, 0, 0, tzinfo=ZoneInfo("Europe/Madrid")),  # P3, weekend
+        datetime(2019, 6, 12, 12, 0, 0, tzinfo=ZoneInfo("Europe/Madrid")),  # no prices
+    ]
+
+    for moment in moments:
+        snapshot = await prices.current_prices(moment)
+        assert await price(moment) == snapshot.price
+        assert await price_generation_kwh(moment) == snapshot.price_generation_kwh
+        assert await compensation(moment) == snapshot.compensation
+        assert await period(moment) == snapshot.period

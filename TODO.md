@@ -534,26 +534,50 @@ chosen. It is a list of XML parsing, `mktemp`, `eval` and `shell=True` checks, a
 integration parses one CSV and does no XML, no subprocess and no temp files. Not changed
 here — narrowing or widening the profile is a security decision, not a cleanup.
 
-### 15. Each sensor recomputes the same values independently
+### 15. ~~Each sensor recomputes the same values independently~~ — fixed
 
-The four sensors share one `SCAN_INTERVAL` and each calls the price functions directly,
-so a single tick repeats the same work. Counted, not inferred:
+The four sensors shared one `SCAN_INTERVAL` and each called the price functions
+directly, so a single tick repeated the same work. Counted, not inferred:
 
 ```
 por tick de 4 sensores:  6 conversiones de zona horaria, 3 barridos de la tabla
 ```
 
-`price` and `price_generation_kwh` each call `period` internally, which converts the time
-zone a second time; `compensation` and `period` convert it again on their own. Since item
-11 the remaining cost is that conversion and the row scan — no I/O at all — so this is
-~0.19 ms a minute, and **CPU is not the argument here either**.
+CPU was never the argument — since item 11 that is ~0.19 ms a minute with no I/O at all.
+**Atomicity was.** Each sensor called `utcnow()` for itself, so a tick landing on a
+period boundary could publish a period of P2 next to a price already computed as P1.
 
-What a `DataUpdateCoordinator` would buy is atomicity: the four sensors each call
-`utcnow()` separately, so a tick that lands on a period boundary can publish a period
-sensor reading P2 next to a price already computed as P1. The window is microseconds
-wide and no user has reported it.
+A `SomEnergiaCoordinator` now reads the clock once and calls `current_prices`, which
+returns the four values from one conversion and one scan as a frozen `PriceSnapshot`.
+The sensors are `CoordinatorEntity` subclasses that pick a field out of it and are no
+longer polled at all. `price`, `price_generation_kwh` and `compensation` stay as
+wrappers over `current_prices`; `period` deliberately does not go through it, since it
+needs no price row.
 
-Against that, AGENTS.md documents the current shape as deliberate: the sensors hold no
-coordinator and no shared state, which is what makes them testable as pure functions of
-the clock. Do not treat this as a defect to fix on sight — it is a trade to make
-consciously, and the atomicity has to be worth the coupling.
+```
+por tick de 4 sensores:  1 conversión, 1 barrido
+coste de un tick:        0.191 ms -> 0.033 ms
+```
+
+`test_a_period_boundary_cannot_split_the_sensors` pins the actual guarantee: it drives a
+clock that advances a second on every read across 08:00 on a working Monday, asserts the
+clock was read exactly once, and asserts the four states describe the instant before the
+boundary. Making `_async_update_data` read the clock a second time — the old shape —
+fails it.
+
+Two behaviours changed on purpose, and both are the coordinator's semantics rather than
+accidents:
+
+- **Shared availability.** `CoordinatorEntity.available` follows `last_update_success`,
+  so a failed computation takes the four sensors to `unavailable` together instead of
+  leaving each with whatever it last managed to compute.
+- **`UpdateFailed` instead of a raw exception.** The one reachable failure is an
+  unresolvable `Europe/Madrid`. `_async_update_data` wraps it, so the log gets one line
+  at error level rather than an unexpected-exception traceback every minute, and a
+  failure during setup becomes `ConfigEntryNotReady` and retries the entry instead of
+  loading it with four dead sensors.
+
+AGENTS.md documented the coordinator-free shape as deliberate, so it was updated in the
+same change rather than left contradicting the code. Equivalence checked as in items 5
+and 11: 79812 momentos (hourly 2021-12 to 2031-01, plus every row boundary at +/-1
+microsecond), 0 discrepancias.

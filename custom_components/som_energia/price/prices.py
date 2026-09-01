@@ -1,6 +1,7 @@
 from asyncio import get_running_loop
 from collections.abc import Mapping
 import csv
+from dataclasses import dataclass
 import datetime
 import os
 
@@ -20,6 +21,21 @@ PriceTable = Mapping[tuple[datetime.date, datetime.date], Mapping[str, float]]
 _price_table: PriceTable | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class PriceSnapshot:
+    """Everything the integration publishes, all read off a single instant.
+
+    Computing the four values together is what makes them consistent: they share one
+    time zone conversion and one table row, so an update that lands on a period
+    boundary can no longer publish the period of P2 next to the price of P1.
+    """
+
+    period: str
+    price: float | None
+    price_generation_kwh: float | None
+    compensation: float | None
+
+
 def _read_price_csv() -> PriceTable:
     """Parse prices.csv. Blocking; only reachable through _get_price_table."""
     file_path = os.path.join(os.path.dirname(__file__), "prices.csv")
@@ -30,11 +46,11 @@ def _read_price_csv() -> PriceTable:
     with open(file_path, encoding="utf-8", newline="") as file:
         reader = csv.DictReader(file)
         for row in reader:
-            period = (
+            period_bounds = (
                 datetime.datetime.strptime(row["Inicio Periodo"], "%Y-%m-%d").date(),
                 datetime.datetime.strptime(row["Final Periodo"], "%Y-%m-%d").date(),
             )
-            prices_data[period] = {
+            prices_data[period_bounds] = {
                 "punta": float(row["Punta"] if row["Punta"] != "" else 0.0),
                 "llano": float(row["Llano"] if row["Llano"] != "" else 0.0),
                 "valle": float(row["Valle"] if row["Valle"] != "" else 0.0),
@@ -56,18 +72,13 @@ async def _get_price_table() -> PriceTable:
     patches builtins.open and logs a blocking-call warning for any read on the event
     loop. Every later call is an in-memory lookup with no thread hop.
 
-    No lock: async_setup_entry warms this before any sensor runs, and two cold callers
-    racing would only parse the same immutable table twice.
+    No lock: the coordinator's first refresh warms this during setup, before any sensor
+    exists, and two cold callers racing would only parse the same immutable table twice.
     """
     global _price_table
     if _price_table is None:
         _price_table = await get_running_loop().run_in_executor(None, _read_price_csv)
     return _price_table
-
-
-async def async_load_prices() -> None:
-    """Warm the price table during setup so no sensor update ever waits on disk."""
-    await _get_price_table()
 
 
 async def _madrid_time(current_datetime: datetime.datetime) -> datetime.datetime:
@@ -91,38 +102,8 @@ async def _prices_for_current_period(timezone_datetime: datetime.datetime) -> Ma
     return None
 
 
-async def _price(current_datetime: datetime.datetime, valle: str, llano: str, punta: str) -> float | None:
-    timezone_datetime = await _madrid_time(current_datetime)
-    prices_of_the_period = await _prices_for_current_period(timezone_datetime)
-    if prices_of_the_period is None:
-        return None
-    current_period = await period(current_datetime)
-    if current_period == "P1":
-        return prices_of_the_period[punta]
-    elif current_period == "P2":
-        return prices_of_the_period[llano]
-    else:
-        return prices_of_the_period[valle]
-
-
-async def price(current_datetime: datetime.datetime) -> float | None:
-    return await _price(current_datetime, 'valle', 'llano', 'punta')
-
-
-async def price_generation_kwh(current_datetime: datetime.datetime) -> float | None:
-    return await _price(current_datetime, 'valle_generation_kwh', 'llano_generation_kwh', 'punta_generation_kwh')
-
-
-async def compensation(current_datetime: datetime.datetime) -> float | None:
-    timezone_datetime = await _madrid_time(current_datetime)
-    prices_of_the_period = await _prices_for_current_period(timezone_datetime)
-    if prices_of_the_period is None:
-        return None
-    return prices_of_the_period['compensation']
-
-
-async def period(current_datetime: datetime.datetime) -> str:
-    timezone_datetime = await _madrid_time(current_datetime)
+def _period_of(timezone_datetime: datetime.datetime) -> str:
+    """The tariff period of an already converted Spanish local time."""
     if is_tariff_holiday(timezone_datetime):
         return "P3"
     weekday = timezone_datetime.isoweekday()
@@ -135,3 +116,56 @@ async def period(current_datetime: datetime.datetime) -> str:
         return "P2"
     else:
         return "P1"
+
+
+def _price_for_period(prices_of_the_period: Mapping[str, float], current_period: str,
+                      valle: str, llano: str, punta: str) -> float:
+    if current_period == "P1":
+        return prices_of_the_period[punta]
+    elif current_period == "P2":
+        return prices_of_the_period[llano]
+    else:
+        return prices_of_the_period[valle]
+
+
+async def current_prices(current_datetime: datetime.datetime) -> PriceSnapshot:
+    """Compute the whole snapshot from one instant: one conversion, one table scan."""
+    timezone_datetime = await _madrid_time(current_datetime)
+    current_period = _period_of(timezone_datetime)
+    prices_of_the_period = await _prices_for_current_period(timezone_datetime)
+    if prices_of_the_period is None:
+        # Outside every row of prices.csv. The period is still known — it is a function
+        # of the clock alone — but there is no price to publish for it.
+        return PriceSnapshot(
+            period=current_period,
+            price=None,
+            price_generation_kwh=None,
+            compensation=None,
+        )
+    return PriceSnapshot(
+        period=current_period,
+        price=_price_for_period(
+            prices_of_the_period, current_period, 'valle', 'llano', 'punta'),
+        price_generation_kwh=_price_for_period(
+            prices_of_the_period, current_period,
+            'valle_generation_kwh', 'llano_generation_kwh', 'punta_generation_kwh'),
+        compensation=prices_of_the_period['compensation'],
+    )
+
+
+async def price(current_datetime: datetime.datetime) -> float | None:
+    return (await current_prices(current_datetime)).price
+
+
+async def price_generation_kwh(current_datetime: datetime.datetime) -> float | None:
+    return (await current_prices(current_datetime)).price_generation_kwh
+
+
+async def compensation(current_datetime: datetime.datetime) -> float | None:
+    return (await current_prices(current_datetime)).compensation
+
+
+async def period(current_datetime: datetime.datetime) -> str:
+    # Not routed through current_prices: the period needs no price row, and asking for
+    # one would make the cheapest sensor pay for a table scan it does not use.
+    return _period_of(await _madrid_time(current_datetime))

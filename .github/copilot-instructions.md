@@ -52,6 +52,13 @@ value and the test asserts the wrong thing while still passing.
   `builtins.open` and warns for any read on the loop, including the first. Do not suggest
   re-typing the shared table as `dict`: `Mapping` is what makes mypy reject mutation of an
   object every caller holds.
+- The four sensors are `CoordinatorEntity` subclasses that only pick a field out of
+  `coordinator.data`; the values are computed once per tick by `SomEnergiaCoordinator`
+  from a single `utcnow()`. Do not suggest giving the sensors `async_update` or a
+  `SCAN_INTERVAL` back, and do not suggest that any of them read the clock: that single
+  reading is what stops a tick on a period boundary from publishing the period of P2
+  next to the price of P1. The shared availability that comes with it, and the
+  `UpdateFailed` wrapping in `_async_update_data`, are deliberate too.
 - That helper must come from `homeassistant.util.dt`, never from `aiozoneinfo` directly:
   the package is an undeclared internal HA dependency. Flag any reintroduced
   `from aiozoneinfo import ...`. Its `None` return is handled once, in `_madrid_time`;
