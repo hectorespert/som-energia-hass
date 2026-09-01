@@ -2,7 +2,7 @@
   "name": "Som Energia",
   "render_readme": true,
   "country": "ES",
-  "homeassistant": "2024.1.0",
+  "homeassistant": "2024.6.0",
   "zip_release": true,
   "filename": "som_energia.zip"
 }
