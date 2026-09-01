@@ -200,7 +200,21 @@ convention.
 
 All three are typing-only changes: no runtime behaviour differs, since `Platform.SENSOR ==
 "sensor"` and `ConfigFlowResult`/`AddConfigEntryEntitiesCallback` are `TypedDict`/`Protocol`
-declarations with no runtime footprint. `tests/test_init.py` (setup, unload, reload) and
+declarations with no runtime footprint.
+
+Two of the three are old and safe. `AddConfigEntryEntitiesCallback` is not: it was added in
+**2025.3.0**, while `hacs.json` declared `2024.6.0` — the floor item 5 had just made
+honest. Importing it under that declaration would have reintroduced exactly the defect item
+5 closed, so the floor moves to `2025.3.0` here, in the change that creates the
+requirement.
+
+Finding this cost the build job going red, and what it exposed was bigger than item 6. CI
+pinned Python 3.12, and Home Assistant requires 3.13 from 2025.3.0 onwards, so pip could
+not install any newer HA: it backtracked to
+`pytest-homeassistant-custom-component==0.13.205` and installed `homeassistant==2025.1.4`.
+CI had been testing a January release for months and looked green, because nothing used a
+symbol newer than 2025.1. Fixed separately in #82, which moved CI to Python 3.13; it now
+resolves `homeassistant==2026.2.3`. `tests/test_init.py` (setup, unload, reload) and
 `tests/test_config_flow.py` (form step, entry creation, single-instance abort) exercise the
 same code paths and stayed green with no changes; full suite: 114 tests, 157 statements,
 0 missed, 100% coverage, `excluded_lines` empty.
