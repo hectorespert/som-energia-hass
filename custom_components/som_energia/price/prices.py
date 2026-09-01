@@ -29,31 +29,24 @@ def _read_price_csv() -> dict:
             }
     return prices_data
 
-async def _prices_for_current_period(timezone_datetime: datetime.datetime, tz: ZoneInfo) -> dict:
-    prices_of_the_period = {
-        "punta": 0.0,
-        "llano": 0.0,
-        "valle": 0.0,
-        "compensation": 0.0,
-        "punta_generation_kwh": 0.0,
-        "llano_generation_kwh": 0.0,
-        "valle_generation_kwh": 0.0,
-    }
-    for period, prices_of_the_period in (await get_running_loop().run_in_executor(None, _read_price_csv)).items():
-        prices_period_start = datetime.datetime.strptime(period[0], "%Y-%m-%d").replace(tzinfo=tz)
-        prices_period_end = datetime.datetime.strptime(period[1], "%Y-%m-%d").replace(
+async def _prices_for_current_period(timezone_datetime: datetime.datetime, tz: ZoneInfo) -> dict | None:
+    prices_data = await get_running_loop().run_in_executor(None, _read_price_csv)
+    for (start, end), prices_of_the_period in prices_data.items():
+        prices_period_start = datetime.datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=tz)
+        prices_period_end = datetime.datetime.strptime(end, "%Y-%m-%d").replace(
             hour=23, minute=59, second=59, microsecond=999999, tzinfo=tz
         )
         if prices_period_start <= timezone_datetime <= prices_period_end:
-            prices_of_the_period = prices_of_the_period
-            break
-    return prices_of_the_period
+            return prices_of_the_period
+    return None
 
 
-async def _price(current_datetime: datetime.datetime, valle: str, llano: str, punta: str) -> float:
+async def _price(current_datetime: datetime.datetime, valle: str, llano: str, punta: str) -> float | None:
     tz = await async_get_time_zone("Europe/Madrid")
     timezone_datetime = current_datetime.astimezone(tz)
     prices_of_the_period = await _prices_for_current_period(timezone_datetime, tz)
+    if prices_of_the_period is None:
+        return None
     current_period = await period(current_datetime)
     if current_period == "P1":
         return prices_of_the_period[punta]
@@ -62,17 +55,19 @@ async def _price(current_datetime: datetime.datetime, valle: str, llano: str, pu
     else:
         return prices_of_the_period[valle]
 
-async def price(current_datetime: datetime.datetime) -> float:
+async def price(current_datetime: datetime.datetime) -> float | None:
     return await _price(current_datetime, 'valle', 'llano', 'punta')
 
 
-async def price_generation_kwh(current_datetime: datetime.datetime) -> float:
+async def price_generation_kwh(current_datetime: datetime.datetime) -> float | None:
     return await _price(current_datetime, 'valle_generation_kwh', 'llano_generation_kwh', 'punta_generation_kwh')
 
-async def compensation(current_datetime: datetime.datetime) -> float:
+async def compensation(current_datetime: datetime.datetime) -> float | None:
     tz = await async_get_time_zone("Europe/Madrid")
     timezone_datetime = current_datetime.astimezone(tz)
     prices_of_the_period = await _prices_for_current_period(timezone_datetime, tz)
+    if prices_of_the_period is None:
+        return None
     return prices_of_the_period['compensation']
 
 async def period(current_datetime: datetime.datetime) -> str:

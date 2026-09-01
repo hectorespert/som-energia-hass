@@ -39,30 +39,28 @@ reloading the integration leaves them behind.
 
 No test exercises unload or reload, so nothing catches this.
 
-### 3. Price lookup silently serves the last CSV row for unmatched dates
+### 3. ~~Price lookup silently serves the last CSV row for unmatched dates~~ — fixed
 
-In `price/prices.py`, `_prices_for_current_period` uses `prices_of_the_period` as both
-the zero fallback (line 33) and the `for` loop variable (line 42), and the loop body
-contains the no-op self-assignment `prices_of_the_period = prices_of_the_period`
-(line 48). The zero fallback is therefore unreachable: when no row matches, the function
-returns whatever the last iterated row was.
+`_prices_for_current_period` used `prices_of_the_period` as both the zero fallback and the
+`for` loop variable, so the fallback was destroyed on the first iteration and the no-op
+self-assignment `prices_of_the_period = prices_of_the_period` did nothing. When no row
+matched, the function returned whatever the last iterated row was — and the loop variable
+`period` also shadowed the module-level `period()` function.
+
+The loop now returns the matching row directly and returns `None` when nothing matches;
+`price`, `price_generation_kwh` and `compensation` propagate that `None`, so the sensors
+report `unknown` instead of a plausible-looking wrong price. Returning `0.0` was rejected
+because a `0.00 €/kWh` reading looks like a valid price and would pollute Home Assistant's
+long-term statistics.
 
 ```
-gap date  2022-06-15 -> 0.226 €/kWh, compensation 0.03
-pre-2022  2019-06-12 -> 0.226 €/kWh, compensation 0.03
-current   2026-06-10 -> 0.226 €/kWh, compensation 0.03
+pre-2022  2019-06-12 -> None   (was 0.226 €/kWh, compensation 0.03)
+gap date  2022-06-15 -> 0.357  (gap since filled from the official tariff history)
+current   2026-10-15 -> 0.249
 ```
 
-Both out-of-range dates return the `2026-05-01..2999-12-31` row rather than `0.0`.
-`2022-06-15` is not a hypothetical: `prices.csv` has a real gap between the row ending
-`2022-01-31` and the one starting `2023-01-01`.
-
-This is currently masked in production because the open-ended row also matches "now". It
-becomes a live wrong-price bug the moment that row is closed with a real end date — the
-sensors would keep serving stale prices instead of an obvious zero.
-
-**Fix:** give the loop its own variable and return the zeros (or raise) when nothing
-matches. Decide separately whether the Feb–Dec 2022 gap should be filled.
+The Feb–Dec 2022 gap that made this reachable has been filled, so no date from 2022-01-01
+onwards hits the `None` branch; only genuinely out-of-range dates do.
 
 ## Supply chain and compatibility
 
@@ -144,7 +142,35 @@ declaring `integration_type: hub` produces four ungrouped entities.
   `--strict` and `--cov=custom_components` addopts never apply. Its `[coverage:*]`
   sections *are* live, which is what makes item 1 bite.
 
-Deliberately **not** listed: caching the CSV read and the `holidays` construction. The
-one-minute `SCAN_INTERVAL` costs roughly 1.1 s of CPU per day measured
-(`_read_price_csv` 0.026 ms, `_holidays_in_spain` 0.231 ms per call), so it is not worth
-the complexity.
+### 11. The CSV and the holidays table are rebuilt on every sensor update
+
+`_read_price_csv` re-reads and re-parses `prices.csv` from disk on every call, and
+`_holidays_in_spain` reconstructs the `holidays` object on every call. Neither result can
+change while Home Assistant is running: the CSV ships inside the integration and only
+changes on upgrade, which restarts HA anyway.
+
+With four sensors on a one-minute `SCAN_INTERVAL`, measured on Python 3.13:
+
+```
+_read_price_csv     0.031 ms x 4320 calls/day = 0.14 s
+_holidays_in_spain  0.151 ms x 4320 calls/day = 0.65 s
+                                       total    0.79 s CPU/day, 8640 executor round-trips
+```
+
+**The CPU cost is not the argument** — 0.79 s/day is negligible, and an earlier revision of
+this file deliberately left the item out for exactly that reason. What makes it worth
+listing is the ratio: `functools.cache` on both functions is a two-line change that removes
+all 4320 file reads and 4320 object constructions per day.
+
+Two caveats for whoever picks this up:
+
+- `@cache` does **not** remove the executor round-trip on its own — `run_in_executor` still
+  dispatches to a thread even when the wrapped call returns instantly. Reading the cached
+  value directly on the event loop is what removes it, and that is safe once the call is a
+  pure in-memory lookup with no I/O.
+- `_read_price_csv` currently returns a fresh dict each call. Cached, every caller shares
+  one object, so it must not be mutated. Nothing mutates it today, but nothing enforces it
+  either.
+
+`_holidays_in_spain` is keyed by year, so its cache stays bounded at one entry per year
+queried.
