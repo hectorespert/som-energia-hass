@@ -456,3 +456,28 @@ Success: no issues found in 8 source files
 ```
 
 `excluded_lines` in the coverage report and the mypy override list are now both empty.
+
+### 14. ~~`tests/bandit.yaml` listed two checks bandit no longer has~~ — fixed
+
+The profile named `B320` and `B325`, which bandit dropped. Every run since item 10 wired
+bandit into CI printed:
+
+```
+[extension_loader]	WARNING	Unknown test found in profile: B325
+[extension_loader]	WARNING	Unknown test found in profile: B320
+```
+
+Both are gone upstream, and bandit's own docs still list them as tombstones —
+`B320: xml_bad_etree`, "The check for this call has been removed", which covered
+`lxml.etree.parse` and friends; and `B325: tempnam`, same note, which covered `os.tempnam`
+and `os.tmpnam`, functions Python 3 does not have.
+
+Removing them changes nothing about what is checked — bandit was already ignoring both —
+so the run still reports `No issues identified`; it only stops the warnings. That matters
+now that bandit is a blocking gate: a job whose log always carries warnings trains people
+to skim past them.
+
+Worth noting for whoever revisits this: the profile as a whole looks inherited rather than
+chosen. It is a list of XML parsing, `mktemp`, `eval` and `shell=True` checks, and this
+integration parses one CSV and does no XML, no subprocess and no temp files. Not changed
+here — narrowing or widening the profile is a security decision, not a cleanup.
