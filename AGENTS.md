@@ -6,8 +6,9 @@ Guidance for AI coding agents (Claude Code, Copilot, Codex, …) working in this
 
 [TODO.md](TODO.md) tracks the open defects, deprecations and supply-chain risks in this
 codebase, ranked. Read it before trusting anything here: it documents, among others, an
-`async_unload_entry` that never unloads the sensor platform, and an unpinned `holidays`
-dependency that Good Friday detection depends on by display name.
+unpinned `holidays` dependency that Good Friday detection depends on by display name, and a
+direct `aiozoneinfo` import that works only because Home Assistant happens to ship that
+package.
 
 ## What this is
 
