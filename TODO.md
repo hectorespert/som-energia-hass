@@ -216,7 +216,11 @@ declaring `integration_type: hub` produces four ungrouped entities.
 
 `tests/bandit.yaml` existed but no workflow ran bandit, and `setup.cfg` configured
 flake8, isort and mypy that nothing invoked. A new `.github/workflows/lint.yaml` now
-runs all four, blocking, on the same Python 3.12 as `python.yaml`.
+runs all four, blocking, on Python 3.13 — matching the bump `python.yaml` is getting in
+a separate, prior PR, made necessary because Home Assistant now requires
+`python_requires >= 3.13`; a 3.12 runner was quietly resolving to
+`pytest-homeassistant-custom-component==0.13.205` (`homeassistant==2025.1.4`) instead of
+current HA.
 
 flake8 and bandit ran clean as soon as they were wired in. isort's `[isort]` section had
 `not_skip = __init__.py`, an option isort removed some releases back; current isort
@@ -227,13 +231,13 @@ too, restoring isort's default section order (nothing was ever assigned to it, s
 changes no import's placement).
 
 `[mypy]` had `python_version = 3.7`, which current mypy rejects outright, and
-`ignore_errors = true`, which made it check nothing. Fixed to `python_version = 3.13` —
-not 3.12: Home Assistant's installed source uses PEP 696 generic defaults
+`ignore_errors = true`, which made it check nothing. Fixed to `python_version = 3.13`,
+which now also matches the runner (see above). It would have had to be 3.13 regardless:
+Home Assistant's installed source uses PEP 696 generic defaults
 (`config_entries.py:384`), and mypy must parse that syntax to resolve `ConfigEntry`'s
-type even though `follow_imports = silent` suppresses *errors* from it; parsing still
-happens under whatever `python_version` is set, and 3.12 can't parse that syntax at all.
-The gate's CI job itself still runs the interpreter on Python 3.12, matching `python.yaml`;
-only the type-checking target moved. `check_untyped_defs` and `disallow_untyped_defs`
+type even though `follow_imports = silent` suppresses *errors* from it — parsing happens
+under whatever `python_version` is set, and 3.12 can't parse that syntax at all.
+`check_untyped_defs` and `disallow_untyped_defs`
 are new — without them mypy skips the body of any function missing a full signature,
 which made the bare `ignore_errors = true` config and a merely-syntax-valid one behave
 almost the same in practice. Turning both on surfaced a real bug class: all four sensor
