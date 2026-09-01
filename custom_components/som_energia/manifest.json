@@ -7,6 +7,6 @@
   "integration_type": "hub",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/hectorespert/som-energia-hass/issues",
-  "requirements": ["holidays"],
+  "requirements": [],
   "version": "2026.9.1"
 }
