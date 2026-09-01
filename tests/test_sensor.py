@@ -1,7 +1,27 @@
+from datetime import datetime, timedelta
+from unittest.mock import patch
+from zoneinfo import ZoneInfo
+
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.const import STATE_UNAVAILABLE
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr, entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from homeassistant.util import utcnow
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 
 from custom_components.som_energia import DOMAIN
+from custom_components.som_energia.coordinator import UPDATE_INTERVAL
+from custom_components.som_energia.price.prices import current_prices
+
+SENSORS = [
+    "sensor.som_energia_electricity_price",
+    "sensor.som_energia_generation_kwh_price",
+    "sensor.som_energia_surplus_compensation",
+    "sensor.som_energia_tariff_period",
+]
 
 
 async def test_sensors(hass):
@@ -158,3 +178,112 @@ async def test_existing_entity_ids_survive_setup_and_reload(hass):
 
     for entity_id in legacy_entity_ids.values():
         assert hass.states.get(entity_id) is not None
+
+
+async def _setup_entry(hass) -> MockConfigEntry:
+    entry = MockConfigEntry(domain=DOMAIN)
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    return entry
+
+
+async def _tick(hass) -> None:
+    """Advance past the coordinator's interval and let the refresh run.
+
+    The scheduled refresh is a background task, and a plain async_block_till_done()
+    returns before it has finished — the assertions would then read the state of the
+    previous tick.
+    """
+    async_fire_time_changed(hass, utcnow() + UPDATE_INTERVAL + timedelta(seconds=1))
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+
+async def test_one_tick_computes_the_values_once_for_the_four_sensors(hass):
+    """The four sensors follow the coordinator instead of polling; a tick is a single
+    computation, where it used to be four."""
+    await _setup_entry(hass)
+
+    computations = 0
+
+    async def counting_current_prices(current_datetime):
+        nonlocal computations
+        computations += 1
+        return await current_prices(current_datetime)
+
+    with patch(
+        "custom_components.som_energia.coordinator.current_prices",
+        new=counting_current_prices,
+    ):
+        await _tick(hass)
+
+    assert computations == 1
+    for entity_id in SENSORS:
+        assert hass.states.get(entity_id).state not in (None, STATE_UNAVAILABLE)
+
+
+async def test_a_period_boundary_cannot_split_the_sensors(hass):
+    """This is what the coordinator buys. Each sensor used to call utcnow() for itself,
+    so an update landing on 08:00 — the end of valle on a working Monday — could
+    publish a period of P2 next to a price still computed as P1. One reading of the
+    clock feeds all four, so the four always describe the same instant."""
+    await _setup_entry(hass)
+
+    # 2026-01-05 is a Monday and no tariff holiday: P3 until 08:00, P2 from it.
+    boundary = datetime(2026, 1, 5, 8, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    clock_reads = 0
+
+    def clock_crossing_the_boundary():
+        """Every read lands a second later, so a second caller sees the other side."""
+        nonlocal clock_reads
+        clock_reads += 1
+        return boundary + timedelta(seconds=clock_reads - 1) - timedelta(microseconds=1)
+
+    with patch(
+        "custom_components.som_energia.coordinator.utcnow",
+        new=clock_crossing_the_boundary,
+    ):
+        await _tick(hass)
+
+    assert clock_reads == 1
+    assert hass.states.get("sensor.som_energia_tariff_period").state == "P3"
+    # The valle prices of the 2026-01-01 row, not the llano ones (0.153 / 0.135).
+    assert float(hass.states.get("sensor.som_energia_electricity_price").state) == 0.125
+    assert float(hass.states.get("sensor.som_energia_generation_kwh_price").state) == 0.110
+
+
+async def test_a_failed_update_takes_the_four_sensors_down_together(hass, caplog):
+    """Availability is shared now: the sensors are unavailable exactly when the last
+    computation failed, instead of each holding whatever it last managed to compute."""
+    await _setup_entry(hass)
+
+    async def unresolvable_time_zone(current_datetime):
+        raise HomeAssistantError("Time zone Europe/Madrid is not available")
+
+    with patch(
+        "custom_components.som_energia.coordinator.current_prices",
+        new=unresolvable_time_zone,
+    ):
+        await _tick(hass)
+
+    for entity_id in SENSORS:
+        assert hass.states.get(entity_id).state == STATE_UNAVAILABLE
+    # UpdateFailed, so one line at error level; an unhandled exception would log a
+    # traceback every single minute.
+    assert "Unexpected error fetching" not in caplog.text
+    assert "Time zone Europe/Madrid is not available" in caplog.text
+
+
+async def test_a_failed_first_refresh_retries_the_entry(hass):
+    """The first refresh is what parses prices.csv. If it fails the entry must be
+    retried, not left loaded with four unavailable sensors."""
+    async def unresolvable_time_zone(current_datetime):
+        raise HomeAssistantError("Time zone Europe/Madrid is not available")
+
+    with patch(
+        "custom_components.som_energia.coordinator.current_prices",
+        new=unresolvable_time_zone,
+    ):
+        entry = await _setup_entry(hass)
+
+    assert entry.state is ConfigEntryState.SETUP_RETRY

@@ -64,7 +64,8 @@ custom_components/som_energia/
   __init__.py        setup/unload entry, forwards to PLATFORMS
   const.py           DOMAIN, PLATFORMS
   config_flow.py     single-step, no user input, fixed unique_id
-  sensor.py          4 SensorEntity classes, SCAN_INTERVAL 1 min
+  coordinator.py     one snapshot a minute, shared by the four sensors
+  sensor.py          4 CoordinatorEntity classes, no polling of their own
   price/
     prices.py        period + price calculation (the actual domain logic)
     tariff_holiday.py  Spanish holiday lookup
@@ -92,10 +93,27 @@ stay in chronological order and must not overlap. The open-ended current row end
 `2999-12-31` — when adding a new price period, close that row and add a new
 `2999-12-31` one. Empty cells parse as `0.0`.
 
-`sensor.py` exposes four sensors, all recomputed every minute from `utcnow()`:
-`price`, `price_generation_kwh`, `compensation` (all €/kWh) and `period` (P1/P2/P3).
-Sensors hold no coordinator and no shared state; each `async_update` calls the price
-functions directly.
+`sensor.py` exposes four sensors: `price`, `price_generation_kwh`, `compensation` (all
+€/kWh) and `period` (P1/P2/P3). They do not compute anything and are not polled. A
+`SomEnergiaCoordinator` reads the clock once a minute and calls
+`prices.current_prices(utcnow())`, which returns the whole `PriceSnapshot` from **one**
+time zone conversion and **one** table scan; the sensors are `CoordinatorEntity`
+subclasses whose `native_value` picks one field out of it.
+
+**That single reading of the clock is the point.** With each sensor calling `utcnow()`
+for itself, an update landing on a period boundary could publish a period of P2 next to
+a price still computed as P1 — see `test_a_period_boundary_cannot_split_the_sensors`,
+which fails the moment anything reads the clock twice. It follows that the four sensors
+share a fate: `CoordinatorEntity.available` tracks `last_update_success`, so a failed
+computation takes all four to `unavailable` together instead of leaving each holding
+whatever it last managed. `_async_update_data` turns the one reachable failure — an
+unresolvable `Europe/Madrid` — into `UpdateFailed`, which during setup becomes
+`ConfigEntryNotReady` and retries the entry.
+
+`price`, `price_generation_kwh` and `compensation` remain as module-level wrappers over
+`current_prices`, which is what the price tests use. `period` is not routed through it:
+it needs no price row, and going through the snapshot would make the cheapest value pay
+for a table scan.
 
 ### Async discipline
 
@@ -107,8 +125,9 @@ file, network, or heavy-CPU work off the loop the same way; this pattern exists 
 of real "blocking call detected" warnings in HA logs.
 
 That read now happens **once per process**: `_read_price_csv` fills a module-level
-`_price_table`, warmed from `async_setup_entry` via `async_load_prices`, and every
-lookup afterwards is an in-memory scan with no thread hop. Keep the read in the
+`_price_table`, warmed by the coordinator's `async_config_entry_first_refresh()` during
+`async_setup_entry`, and every lookup afterwards is an in-memory scan with no thread
+hop. Keep the read in the
 executor anyway — HA's `block_async_io` patches `builtins.open` and exempts only
 `/proc`, so parsing on the loop logs a blocking-call warning even the one time. It
 warns rather than raising and is skipped under tests, so nothing but
@@ -123,8 +142,10 @@ and must not import. The wrapper also returns `None` instead of raising when the
 cannot be resolved, which `_madrid_time` turns into a `HomeAssistantError` — letting it
 through would reach `astimezone(None)` and silently serve prices in the host's timezone.
 
-Requiring `homeassistant.util.dt.async_get_time_zone` is what puts the floor in
-`hacs.json` at `2024.6.0`: that helper and `aiozoneinfo` both landed in that release.
+Requiring `homeassistant.util.dt.async_get_time_zone` is what first put a floor in
+`hacs.json`, at `2024.6.0`: that helper and `aiozoneinfo` both landed in that release.
+The floor is `2025.3.0` today for an unrelated reason — item 5 of TODO.md, the CI Python
+version — so that is the version the code may assume.
 
 ## Conventions
 
