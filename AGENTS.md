@@ -4,10 +4,11 @@ Guidance for AI coding agents (Claude Code, Copilot, Codex, …) working in this
 
 ## Known issues
 
-[TODO.md](TODO.md) tracks the open defects, deprecations and supply-chain risks in this
-codebase, ranked. Read it before trusting anything here: it documents, among others,
-entity names hardcoded in English on an integration whose users are Spanish, and a CSV
-re-read from disk on every one of the 4320 sensor updates a day.
+[TODO.md](TODO.md) is the ledger of audit findings. **Nothing is open right now** — the
+fifteen entries are all fixed — so it is one line per finding with a link to the pull
+request that carries the reasoning. Check it before reporting something as new, and add
+new findings there. The invariants that must not regress are in this file and in
+`.github/copilot-instructions.md`, not there.
 
 ## What this is
 
@@ -34,8 +35,9 @@ CI (`.github/workflows/python.yaml`) and the devcontainer image both run Python 
 any newer HA: it backtracks to `pytest-homeassistant-custom-component==0.13.205`, which
 pulls `homeassistant==2025.1.4`. CI ran that way for months and looked green while
 testing against a January release — the failure only surfaced when a symbol added in
-2025.3.0 was used. There is no linter or formatter wired into CI — `setup.cfg` carries
-flake8 / isort / mypy settings that nothing currently invokes.
+2025.3.0 was used. `.github/workflows/lint.yaml` is a blocking gate running flake8,
+isort, bandit and mypy over `custom_components` and `tests` with the `setup.cfg`
+settings; there is still no formatter.
 
 Run a real Home Assistant against the integration with the devcontainer
 (`.devcontainer/docker-compose.yml`): it mounts `custom_components/som_energia`

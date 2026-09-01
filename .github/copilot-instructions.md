@@ -84,6 +84,6 @@ Follow that style rather than introducing parametrisation.
 
 ## Before reporting a finding
 
-`TODO.md` tracks the known open defects, deprecations and supply-chain risks, ranked.
-Check it before flagging something as new — several known issues are deliberate or already
-scheduled, and the entries struck through in that file are already fixed.
+`TODO.md` is the ledger of audit findings, one line each with a link to the pull request
+that fixed it. Nothing is open there right now, so a finding that matches a row in that
+table has already been dealt with — check it before flagging something as new.
