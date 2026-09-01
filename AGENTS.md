@@ -5,10 +5,9 @@ Guidance for AI coding agents (Claude Code, Copilot, Codex, …) working in this
 ## Known issues
 
 [TODO.md](TODO.md) tracks the open defects, deprecations and supply-chain risks in this
-codebase, ranked. Read it before trusting anything here: it documents, among others, an
-unpinned `holidays` dependency that Good Friday detection depends on by display name, and a
+codebase, ranked. Read it before trusting anything here: it documents, among others, a
 direct `aiozoneinfo` import that works only because Home Assistant happens to ship that
-package.
+package, and entity names hardcoded in English on an integration whose users are Spanish.
 
 ## What this is
 
@@ -74,9 +73,13 @@ custom_components/som_energia/
   time regardless of the HA instance's timezone.
 - P3 (valle) for weekends, tariff holidays, and 00:00–08:00.
 - P2 (llano) for 08–10, 14–18, 22–24. P1 (punta) otherwise.
-- `tariff_holiday.is_tariff_holiday` uses the `holidays` package for Spain, but
-  **excludes Good Friday** ("Viernes Santo"), which is a national holiday yet not a
-  tariff holiday. Don't "fix" this.
+- `tariff_holiday.is_tariff_holiday` matches against `TARIFF_HOLIDAYS`, a frozen set of
+  nine `(month, day)` pairs. CNMC Circular 3/2020 art. 7.3 makes P3 the whole of every
+  Saturday, Sunday, 6 January and national holiday "con exclusión tanto de los festivos
+  sustituibles como de los que no tienen fecha fija" — so the tariff calendar has **no
+  movable component at all** and needs no holiday package. **Good Friday is excluded**
+  because it moves, not as a special case; the same clause drops Maundy Thursday. Don't
+  "fix" this, and don't add Semana Santa.
 
 `prices.csv` maps date ranges to per-period prices. Row keys are
 `(Inicio Periodo, Final Periodo)` and the *first* matching row wins, so rows must stay
@@ -91,8 +94,8 @@ functions directly.
 
 ### Async discipline
 
-Home Assistant forbids blocking calls in the event loop. Both blocking operations —
-reading `prices.csv` and constructing the `holidays` object — are wrapped in
+Home Assistant forbids blocking calls in the event loop. The one blocking operation —
+reading `prices.csv` — is wrapped in
 `get_running_loop().run_in_executor(None, ...)`, and timezone lookup uses
 `aiozoneinfo.async_get_time_zone` rather than `ZoneInfo(...)`. Keep any new file,
 network, or heavy-CPU work off the loop the same way; this pattern exists because of

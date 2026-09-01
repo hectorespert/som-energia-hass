@@ -90,23 +90,37 @@ onwards hits the `None` branch; only genuinely out-of-range dates do.
 
 ## Supply chain and compatibility
 
-### 4. Good Friday detection depends on an unpinned localized string
+### 4. ~~Good Friday detection depends on an unpinned localized string~~ — fixed
 
-`price/tariff_holiday.py:19` compares the holiday name against the literal
-`"Viernes Santo"`, which only exists because line 8 requests `language="es"`. Meanwhile
-`manifest.json` declares `"requirements": ["holidays"]` with **no version bound**, so
-Home Assistant installs whatever is current at runtime.
+`tariff_holiday.py` compared the holiday name against the literal `"Viernes Santo"`, which
+only existed because the call requested `language="es"`, while `manifest.json` declared
+`"requirements": ["holidays"]` with no version bound. A rename or re-localisation upstream
+would have flipped Good Friday to P3 with the suite still green, since the tests assert
+behaviour rather than the string.
 
-If upstream renames or re-localises that entry, `is_tariff_holiday` starts returning
-`True` on Good Friday, the period flips to P3, and the reported price is wrong — silently,
-with the test suite still green, because the tests assert the *behaviour* rather than the
-string.
+The fix proposed here was to pin a range and compute Easter minus two days. Checking the
+regulation showed that to be the wrong repair. CNMC Circular 3/2020, art. 7.3, makes P3
+every hour of Saturdays, Sundays, 6 January and the national holidays of the official
+calendar, "con exclusión tanto de los festivos sustituibles como de los que no tienen fecha
+fija". Excluding the substitutable and the movable ones leaves a **closed list of nine fixed
+dates**, identical every year — Good Friday is out because it moves, not as a special case,
+and 6 January is named explicitly because it is substitutable and would otherwise drop out.
 
-The versions in play already disagree: unpinned in the manifest, `0.103` in
-`requirements-test.txt`, `0.86` in the local virtualenv.
+So the tariff calendar has no movable component and never needed a holiday package at all.
+`TARIFF_HOLIDAYS` is now a frozen set of nine `(month, day)` pairs, verified equivalent to
+the old behaviour hour by hour:
 
-**Fix:** pin a compatible range in `manifest.json`, and identify Good Friday by a
-language-independent signal (Easter minus two days) instead of a display name.
+```
+horas comparadas 2022-2030: 78888
+discrepancias: 0
+```
+
+`holidays` is gone from `manifest.json` (`"requirements": []`) and from
+`requirements-test.txt`, so there is no version left to pin. `is_tariff_holiday` also stopped
+being a coroutine: with no `run_in_executor` there was nothing left to await.
+
+Note this is the *electricity* calendar, not the labour one. They coincide today by
+accident, not by design — which was the real content of this finding.
 
 ### 5. `aiozoneinfo` is imported directly, and the declared HA floor is unverified
 
@@ -170,25 +184,24 @@ The dead `[tool:pytest]` section that used to sit in `setup.cfg` — shadowed by
 `pytest.ini` — was removed with item 1. `pytest.ini` is now the only pytest config;
 `setup.cfg`'s `[coverage:*]` sections remain live.
 
-### 11. The CSV and the holidays table are rebuilt on every sensor update
+### 11. The CSV is re-read on every sensor update
 
-`_read_price_csv` re-reads and re-parses `prices.csv` from disk on every call, and
-`_holidays_in_spain` reconstructs the `holidays` object on every call. Neither result can
-change while Home Assistant is running: the CSV ships inside the integration and only
-changes on upgrade, which restarts HA anyway.
+`_read_price_csv` re-reads and re-parses `prices.csv` from disk on every call. The result
+cannot change while Home Assistant is running: the CSV ships inside the integration and
+only changes on upgrade, which restarts HA anyway.
 
 With four sensors on a one-minute `SCAN_INTERVAL`, measured on Python 3.13:
 
 ```
-_read_price_csv     0.031 ms x 4320 calls/day = 0.14 s
-_holidays_in_spain  0.151 ms x 4320 calls/day = 0.65 s
-                                       total    0.79 s CPU/day, 8640 executor round-trips
+_read_price_csv  0.031 ms x 4320 calls/day = 0.14 s CPU/day, 4320 executor round-trips
 ```
 
-**The CPU cost is not the argument** — 0.79 s/day is negligible, and an earlier revision of
+**The CPU cost is not the argument** — 0.14 s/day is nothing, and an earlier revision of
 this file deliberately left the item out for exactly that reason. What makes it worth
-listing is the ratio: `functools.cache` on both functions is a two-line change that removes
-all 4320 file reads and 4320 object constructions per day.
+listing is the ratio: one `functools.cache` removes all 4320 file reads per day.
+
+This item used to cover `_holidays_in_spain` too, at 0.65 s/day and another 4320 round
+trips. Item 4 deleted that function outright, which is the cheaper fix by a distance.
 
 Two caveats for whoever picks this up:
 
@@ -199,6 +212,3 @@ Two caveats for whoever picks this up:
 - `_read_price_csv` currently returns a fresh dict each call. Cached, every caller shares
   one object, so it must not be mutated. Nothing mutates it today, but nothing enforces it
   either.
-
-`_holidays_in_spain` is keyed by year, so its cache stays bounded at one entry per year
-queried.

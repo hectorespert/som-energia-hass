@@ -38,11 +38,13 @@ value and the test asserts the wrong thing while still passing.
   being released.
 - `manifest.json` must stay at the root of `custom_components/som_energia`: the release
   ZIP takes that directory's **contents**, and `verify-zip.yml` fails the build otherwise.
-- `price/tariff_holiday.py` **deliberately excludes Good Friday** ("Viernes Santo"). It is
-  a Spanish national holiday but not a tariff holiday. Do not flag this as a bug or
-  suggest "fixing" it.
-- Home Assistant forbids blocking calls in the event loop. Reading the CSV and building
-  the `holidays` object both go through `run_in_executor`, and timezone lookups use
+- `price/tariff_holiday.py` holds a frozen set of nine fixed `(month, day)` tariff
+  holidays and **deliberately excludes Good Friday and Maundy Thursday**. CNMC Circular
+  3/2020 art. 7.3 excludes holidays that are substitutable or have no fixed date, so the
+  tariff calendar is a closed list. Do not flag this as a bug, suggest "fixing" it, or
+  propose a holiday package.
+- Home Assistant forbids blocking calls in the event loop. Reading the CSV goes through
+  `run_in_executor`, and timezone lookups use
   `aiozoneinfo.async_get_time_zone` rather than `ZoneInfo(...)`. Flag any new file,
   network or heavy-CPU work placed directly on the loop.
 - Adding a translatable string means editing `strings.json` **and** both
