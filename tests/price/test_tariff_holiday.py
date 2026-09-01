@@ -6,33 +6,45 @@ from custom_components.som_energia.price.tariff_holiday import is_tariff_holiday
 
 
 HOLIDAYS = [
+    # Every tariff year in full. The calendar is a closed list of nine fixed
+    # dates (CNMC Circular 3/2020 art. 7.3), so each year carries the same nine
+    # regardless of which weekday they land on.
+    '2023-01-01',
     '2023-01-06',
     '2023-05-01',
     '2023-08-15',
     '2023-10-12',
     '2023-11-01',
+    '2023-12-06',
     '2023-12-08',
     '2023-12-25',
     '2024-01-01',
+    '2024-01-06',
     '2024-05-01',
     '2024-08-15',
+    '2024-10-12',
     '2024-11-01',
     '2024-12-06',
+    '2024-12-08',
     '2024-12-25',
     '2025-01-01',
+    '2025-01-06',
     '2025-05-01',
     '2025-08-15',
+    '2025-10-12',
     '2025-11-01',
     '2025-12-06',
     '2025-12-08',
     '2025-12-25',
+    '2026-01-01',
+    '2026-01-06',
     '2026-05-01',
     '2026-08-15',
     '2026-10-12',
+    '2026-11-01',
+    '2026-12-06',
     '2026-12-08',
     '2026-12-25',
-    # 2027 and 2028 in full: the tariff calendar is a closed list of nine fixed
-    # dates, so every year carries the same nine regardless of weekday.
     '2027-01-01',
     '2027-01-06',
     '2027-05-01',
