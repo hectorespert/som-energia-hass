@@ -5,9 +5,9 @@ Guidance for AI coding agents (Claude Code, Copilot, Codex, …) working in this
 ## Known issues
 
 [TODO.md](TODO.md) tracks the open defects, deprecations and supply-chain risks in this
-codebase, ranked. Read it before trusting anything here: it documents, among others, a
-coverage-config bug that makes the reported 100% coverage false, and an unpinned
-`holidays` dependency that Good Friday detection depends on by display name.
+codebase, ranked. Read it before trusting anything here: it documents, among others, an
+`async_unload_entry` that never unloads the sensor platform, and an unpinned `holidays`
+dependency that Good Friday detection depends on by display name.
 
 ## What this is
 
@@ -39,10 +39,18 @@ read-only into a `homeassistant` container on port 8123. The README's bare
 
 ### Config gotcha
 
-Both `pytest.ini` and a `[tool:pytest]` section in `setup.cfg` exist. **`pytest.ini`
-wins**, so the `--strict` and `--cov=custom_components` addopts in `setup.cfg` are
-dead config — pass coverage flags explicitly. `pytest.ini` only sets
-`asyncio_mode = auto`, which is why tests are `async def` with no `@pytest.mark.asyncio`.
+`pytest.ini` is the only pytest config — it sets `asyncio_mode = auto`, which is why tests
+are `async def` with no `@pytest.mark.asyncio`. It sets no addopts, so **coverage flags
+have to be passed explicitly**; `setup.cfg` carries only the `[coverage:*]` sections.
+`setup.cfg` used to hold a shadowed `[tool:pytest]` section too; it was removed, so don't
+put pytest settings there.
+
+`[coverage:report] exclude_lines` entries are **regexes matched as substrings**, and
+coverage excludes the whole clause under a match. An unanchored pattern there once hid the
+entire config flow while the total still read 100% — see item 1 of TODO.md. Anchor anything
+that names code (`^\s*raise NotImplementedError`); `pragma: no cover` is the exception and
+stays unanchored, since it is a trailing marker rather than a statement. After touching the
+section, check `excluded_lines` in `--cov-report=json` — it should be empty.
 
 ## Architecture
 
