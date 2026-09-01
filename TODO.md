@@ -39,14 +39,31 @@ overrode `[coverage:run] source = custom_components` and counted the 344 stateme
 code — 100% covered by definition — alongside the integration, reporting 99%. It now runs
 `--cov=custom_components`.
 
-### 2. `async_unload_entry` never unloads the sensor platform
+### 2. ~~`async_unload_entry` never unloads the sensor platform~~ — fixed
 
-`custom_components/som_energia/__init__.py:25-27` returns `True` without calling
-`hass.config_entries.async_unload_platforms(entry, PLATFORMS)`. Home Assistant marks the
-entry unloaded while the four sensor entities stay registered and polling, so removing or
-reloading the integration leaves them behind.
+`__init__.py` returned `True` without calling
+`hass.config_entries.async_unload_platforms(entry, PLATFORMS)`, leaving
+`async_forward_entry_setups` without its counterpart. Home Assistant marked the entry
+`NOT_LOADED` while the `EntityPlatform` stayed registered with its four sensors and its
+one-minute polling timer.
 
-No test exercises unload or reload, so nothing catches this.
+Reload was the worse half, and the original finding did not record it. `async_reload`
+unloads and then sets up again, so the second setup reached a platform that had never been
+released:
+
+```
+ValueError: Config entry Mock Title (01M1E48BVRG25SXW1NS3NCQECQ)
+            for som_energia.sensor has already been setup!
+```
+
+`config_entries` logs that and swallows it, leaving the entry marked `LOADED` with the stale
+platform still polling. The UI's "Reload" button, `homeassistant.reload_config_entry` and
+HACS upgrades all appeared to work and did not.
+
+`async_unload_entry` now returns `async_unload_platforms`. `tests/test_init.py` covers setup,
+unload and reload; with the one-line fix reverted, the unload and reload tests both fail
+while the setup test still passes. The unused `hass.data.setdefault(DOMAIN, {})` in
+`async_setup` went too — nothing ever read or wrote that dict.
 
 ### 3. ~~Price lookup silently serves the last CSV row for unmatched dates~~ — fixed
 
