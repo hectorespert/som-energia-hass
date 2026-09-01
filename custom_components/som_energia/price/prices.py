@@ -118,8 +118,13 @@ def _period_of(timezone_datetime: datetime.datetime) -> str:
         return "P1"
 
 
-def _price_for_period(prices_of_the_period: Mapping[str, float], current_period: str,
-                      valle: str, llano: str, punta: str) -> float:
+def _price_for_period(
+    prices_of_the_period: Mapping[str, float],
+    current_period: str,
+    valle: str,
+    llano: str,
+    punta: str,
+) -> float:
     if current_period == "P1":
         return prices_of_the_period[punta]
     elif current_period == "P2":
