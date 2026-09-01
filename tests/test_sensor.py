@@ -22,7 +22,7 @@ async def test_sensors(hass):
     # name, slugified — measured against the default (English) test locale.
     state = hass.states.get("sensor.som_energia_generation_kwh_price")
     assert state
-    assert state.state > "0.0"
+    assert float(state.state) > 0.0
     assert state.name == "Som Energia Generation kWh price"
     assert state.attributes["unit_of_measurement"] == "€/kWh"
 
@@ -35,13 +35,13 @@ async def test_sensors(hass):
 
     state = hass.states.get("sensor.som_energia_surplus_compensation")
     assert state
-    assert state.state > "0.0"
+    assert float(state.state) > 0.0
     assert state.name == "Som Energia Surplus compensation"
     assert state.attributes["unit_of_measurement"] == "€/kWh"
 
     state = hass.states.get("sensor.som_energia_electricity_price")
     assert state
-    assert state.state > "0.0"
+    assert float(state.state) > 0.0
     assert state.name == "Som Energia Electricity price"
     assert state.attributes["unit_of_measurement"] == "€/kWh"
 
