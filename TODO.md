@@ -212,10 +212,38 @@ and blocks deriving translation keys from `key`.
 handling and validation. None of the entities set `device_info`, so an integration
 declaring `integration_type: hub` produces four ungrouped entities.
 
-### 10. No lint or security gate in CI
+### 10. ~~No lint or security gate in CI~~ — fixed
 
-- `tests/bandit.yaml` exists but no workflow runs bandit.
-- `setup.cfg` configures flake8, isort and mypy that nothing invokes.
+`tests/bandit.yaml` existed but no workflow ran bandit, and `setup.cfg` configured
+flake8, isort and mypy that nothing invoked. A new `.github/workflows/lint.yaml` now
+runs all four, blocking, on the same Python 3.12 as `python.yaml`.
+
+flake8 and bandit ran clean as soon as they were wired in. isort's `[isort]` section had
+`not_skip = __init__.py`, an option isort removed some releases back; current isort
+refuses to start with it present (`isort.exceptions.UnsupportedSettings`), so it's gone.
+`sections` also listed `INBETWEENS` with no `known_inbetweens` defined, which does
+nothing but prints a `UserWarning` on every run; `INBETWEENS` is gone from `sections`
+too, restoring isort's default section order (nothing was ever assigned to it, so this
+changes no import's placement).
+
+`[mypy]` had `python_version = 3.7`, which current mypy rejects outright, and
+`ignore_errors = true`, which made it check nothing. Fixed to `python_version = 3.13` —
+not 3.12: Home Assistant's installed source uses PEP 696 generic defaults
+(`config_entries.py:384`), and mypy must parse that syntax to resolve `ConfigEntry`'s
+type even though `follow_imports = silent` suppresses *errors* from it; parsing still
+happens under whatever `python_version` is set, and 3.12 can't parse that syntax at all.
+The gate's CI job itself still runs the interpreter on Python 3.12, matching `python.yaml`;
+only the type-checking target moved. `check_untyped_defs` and `disallow_untyped_defs`
+are new — without them mypy skips the body of any function missing a full signature,
+which made the bare `ignore_errors = true` config and a merely-syntax-valid one behave
+almost the same in practice. Turning both on surfaced a real bug class: all four sensor
+classes did `self._state = None` in `__init__` with no annotation, so mypy inferred the
+attribute's type as `None` and flagged every later `self._state = await price(...)` as
+an incompatible assignment. Fixed with an explicit `self._state: float | None = None`
+(three sensors) and `self._state: str | None = None` (`ElectricityPeriodSensor`), plus
+`-> None` on the four `async_update` methods, which had no return annotation.
+
+One module is deliberately excluded from the mypy gate rather than fixed — see item 12.
 
 The dead `[tool:pytest]` section that used to sit in `setup.cfg` — shadowed by
 `pytest.ini` — was removed with item 1. `pytest.ini` is now the only pytest config;
@@ -249,3 +277,27 @@ Two caveats for whoever picks this up:
 - `_read_price_csv` currently returns a fresh dict each call. Cached, every caller shares
   one object, so it must not be mutated. Nothing mutates it today, but nothing enforces it
   either.
+
+### 12. `config_flow.py` is excluded from the mypy gate
+
+`setup.cfg` carries a `[mypy-custom_components.som_energia.config_flow]` section with
+`ignore_errors = true`, opted out of the mypy check the rest of `custom_components` now
+runs under. With the rest of the gate's config (`python_version = 3.13`, needed to parse
+Home Assistant's installed source — see item 10) applied to this module, mypy reports:
+
+```
+config_flow.py:19: error: Return type "Coroutine[Any, Any, FlowResult[FlowContext, str]]"
+  of "async_step_user" incompatible with return type "Coroutine[Any, Any, ConfigFlowResult]"
+  in supertype "homeassistant.config_entries.ConfigFlow"  [override]
+config_flow.py:22: error: Incompatible return value type (got "ConfigFlowResult",
+  expected "FlowResult[FlowContext, str]")  [return-value]
+config_flow.py:26: error: Incompatible return value type (got "ConfigFlowResult",
+  expected "FlowResult[FlowContext, str]")  [return-value]
+```
+
+That's exactly item 6's `FlowResult` → `ConfigFlowResult` finding, already queued on a
+separate branch actively rewriting this file. Fixing it as part of the lint gate would
+duplicate that change and collide with it on merge, so the module is excluded instead of
+fixed. Once item 6 lands, delete the `[mypy-custom_components.som_energia.config_flow]`
+override and let the module back into the gate — nothing else in it currently fails
+mypy.

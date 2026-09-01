@@ -1,0 +1,39 @@
+name: Lint and security
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: 'requirements-test.txt'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-test.txt
+
+      - name: flake8
+        run: flake8 custom_components tests
+
+      - name: isort
+        run: isort --check-only --diff custom_components tests
+
+      - name: bandit
+        run: bandit -r custom_components -c tests/bandit.yaml
+
+      - name: mypy
+        run: mypy --config-file setup.cfg custom_components
