@@ -5,9 +5,9 @@ Guidance for AI coding agents (Claude Code, Copilot, Codex, …) working in this
 ## Known issues
 
 [TODO.md](TODO.md) tracks the open defects, deprecations and supply-chain risks in this
-codebase, ranked. Read it before trusting anything here: it documents, among others, a
-direct `aiozoneinfo` import that works only because Home Assistant happens to ship that
-package, and entity names hardcoded in English on an integration whose users are Spanish.
+codebase, ranked. Read it before trusting anything here: it documents, among others,
+entity names hardcoded in English on an integration whose users are Spanish, and a CSV
+re-read from disk on every one of the 4320 sensor updates a day.
 
 ## What this is
 
@@ -97,9 +97,19 @@ functions directly.
 Home Assistant forbids blocking calls in the event loop. The one blocking operation —
 reading `prices.csv` — is wrapped in
 `get_running_loop().run_in_executor(None, ...)`, and timezone lookup uses
-`aiozoneinfo.async_get_time_zone` rather than `ZoneInfo(...)`. Keep any new file,
-network, or heavy-CPU work off the loop the same way; this pattern exists because of
-real "blocking call detected" warnings in HA logs.
+`homeassistant.util.dt.async_get_time_zone` rather than `ZoneInfo(...)`. Keep any new
+file, network, or heavy-CPU work off the loop the same way; this pattern exists because
+of real "blocking call detected" warnings in HA logs.
+
+Import that helper **from `homeassistant.util.dt`, never from `aiozoneinfo`**. HA's
+wrapper is a two-line delegation to that package, so it is the same lookup and the same
+cache, but `aiozoneinfo` is an internal HA dependency this integration does not declare
+and must not import. The wrapper also returns `None` instead of raising when the zone
+cannot be resolved, which `_madrid_time` turns into a `HomeAssistantError` — letting it
+through would reach `astimezone(None)` and silently serve prices in the host's timezone.
+
+Requiring `homeassistant.util.dt.async_get_time_zone` is what puts the floor in
+`hacs.json` at `2024.6.0`: that helper and `aiozoneinfo` both landed in that release.
 
 ## Conventions
 

@@ -1,5 +1,9 @@
 from datetime import datetime
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
+
+import pytest
+from homeassistant.exceptions import HomeAssistantError
 
 from custom_components.som_energia.price import price, compensation
 from custom_components.som_energia.price.prices import price_generation_kwh, period
@@ -424,3 +428,16 @@ async def test_period_with_utc_timezone():
     monday_utc = datetime(2022, 1, 24, 13, 0, 0, tzinfo=ZoneInfo("UTC"))
     assert await period(monday_utc) == "P2"
 
+
+
+async def test_price_refuses_when_the_time_zone_is_unavailable():
+    # HA's async_get_time_zone returns None instead of raising when tzdata cannot
+    # resolve the name. Falling through would call astimezone(None), which silently
+    # converts to the host's local time and serves the prices of the wrong hours.
+    monday = datetime(2022, 1, 24, 10, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    with patch(
+        "custom_components.som_energia.price.prices.async_get_time_zone",
+        return_value=None,
+    ):
+        with pytest.raises(HomeAssistantError):
+            await price(monday)

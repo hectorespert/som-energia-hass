@@ -122,17 +122,54 @@ being a coroutine: with no `run_in_executor` there was nothing left to await.
 Note this is the *electricity* calendar, not the labour one. They coincide today by
 accident, not by design — which was the real content of this finding.
 
-### 5. `aiozoneinfo` is imported directly, and the declared HA floor is unverified
+### 5. ~~`aiozoneinfo` is imported directly, and the declared HA floor is unverified~~ — fixed
 
-`price/prices.py` does `from aiozoneinfo import async_get_time_zone`. That package is an
-implementation detail of Home Assistant (`aiozoneinfo==0.2.3` is one of HA's own
-dependencies), and it is not declared in `manifest.json` — the integration works only
-because HA happens to ship it. HA exposes a supported, caching wrapper:
-`homeassistant.util.dt.async_get_time_zone`.
+`price/prices.py` did `from aiozoneinfo import async_get_time_zone`. That package is an
+implementation detail of Home Assistant, not declared in `manifest.json` — and after item 4
+emptied `requirements`, it was the only external import left in the integration. It now
+imports HA's supported wrapper, `homeassistant.util.dt.async_get_time_zone`.
 
-Related: `hacs.json` declares `"homeassistant": "2024.1.0"` as the minimum, but nothing
-tests that floor — CI and the devcontainer both run current HA — and `aiozoneinfo`
-postdates it. Verify the true minimum and raise the declaration.
+The original finding called that wrapper "caching", implying the swap buys performance. It
+does not. The wrapper is a two-line delegation and the cache lives inside `aiozoneinfo`,
+which the old code already went through:
+
+```python
+from aiozoneinfo import async_get_time_zone as _async_get_time_zone
+
+async def async_get_time_zone(time_zone_str):
+    try:
+        return await _async_get_time_zone(time_zone_str)
+    except zoneinfo.ZoneInfoNotFoundError:
+        return None
+```
+
+Same lookup, same cache. What changes is that the dependency is now on HA's public surface
+instead of on a package HA merely happens to ship.
+
+The one behavioural difference is that `except` clause: aiozoneinfo raises, HA returns
+`None`. Unreachable with `"Europe/Madrid"` hardcoded, but letting it through would reach
+`astimezone(None)`, which does not fail — it converts to the *host's* local time and serves
+the prices of the wrong hours. Confirmed by deleting the guard and watching the call return
+a value instead of raising. `_madrid_time` raises `HomeAssistantError` instead, and
+`test_price_refuses_when_the_time_zone_is_unavailable` covers it.
+
+That helper also absorbed the `tz = ...; astimezone(tz)` pair that was copy-pasted into
+`_price`, `compensation` and `period`, along with the three copies of the `"Europe/Madrid"`
+literal. `_prices_for_current_period` lost its `tz` parameter with it: the datetime it
+receives is already localised, so `timezone_datetime.tzinfo` is the same object the caller
+used to build it.
+
+On the floor: `hacs.json` said `2024.1.0`, and both halves of the question resolve to the
+same release.
+
+```
+2024.5.0  util/dt.py -> no async_get_time_zone   package_constraints.txt -> no aiozoneinfo
+2024.6.0  util/dt.py -> async_get_time_zone      package_constraints.txt -> aiozoneinfo==0.1.0
+```
+
+So `2024.1.0` was already false before this change — the old code needed 2024.6.0 too, just
+without saying so. `hacs.json` now declares `2024.6.0`. Nothing tests that floor yet; CI and
+the devcontainer still run current HA.
 
 ## Deprecations
 

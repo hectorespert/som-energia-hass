@@ -45,8 +45,13 @@ value and the test asserts the wrong thing while still passing.
   propose a holiday package.
 - Home Assistant forbids blocking calls in the event loop. Reading the CSV goes through
   `run_in_executor`, and timezone lookups use
-  `aiozoneinfo.async_get_time_zone` rather than `ZoneInfo(...)`. Flag any new file,
-  network or heavy-CPU work placed directly on the loop.
+  `homeassistant.util.dt.async_get_time_zone` rather than `ZoneInfo(...)`. Flag any new
+  file, network or heavy-CPU work placed directly on the loop.
+- That helper must come from `homeassistant.util.dt`, never from `aiozoneinfo` directly:
+  the package is an undeclared internal HA dependency. Flag any reintroduced
+  `from aiozoneinfo import ...`. Its `None` return is handled once, in `_madrid_time`;
+  do not suggest dropping that guard as dead code, since `astimezone(None)` would
+  silently serve prices in the host's timezone rather than Madrid's.
 - Adding a translatable string means editing `strings.json` **and** both
   `translations/en.json` and `translations/es.json`.
 - The README is bilingual, Spanish first and then English; both sections must stay in sync.

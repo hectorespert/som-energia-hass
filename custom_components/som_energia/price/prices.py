@@ -2,11 +2,13 @@ import csv
 import datetime
 import os
 from asyncio import get_running_loop
-from zoneinfo import ZoneInfo
 
-from aiozoneinfo import async_get_time_zone
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.util.dt import async_get_time_zone
 
 from custom_components.som_energia.price.tariff_holiday import is_tariff_holiday
+
+TIME_ZONE = "Europe/Madrid"
 
 def _read_price_csv() -> dict:
     file_path = os.path.join(os.path.dirname(__file__), "prices.csv")
@@ -29,8 +31,19 @@ def _read_price_csv() -> dict:
             }
     return prices_data
 
-async def _prices_for_current_period(timezone_datetime: datetime.datetime, tz: ZoneInfo) -> dict | None:
+
+async def _madrid_time(current_datetime: datetime.datetime) -> datetime.datetime:
+    """Convert to Spanish local time, which is what every tariff rule is defined in."""
+    tz = await async_get_time_zone(TIME_ZONE)
+    if tz is None:
+        # astimezone(None) would silently fall back to the host's local time and
+        # serve the prices of the wrong hours, so refuse instead.
+        raise HomeAssistantError(f"Time zone {TIME_ZONE} is not available")
+    return current_datetime.astimezone(tz)
+
+async def _prices_for_current_period(timezone_datetime: datetime.datetime) -> dict | None:
     prices_data = await get_running_loop().run_in_executor(None, _read_price_csv)
+    tz = timezone_datetime.tzinfo
     for (start, end), prices_of_the_period in prices_data.items():
         prices_period_start = datetime.datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=tz)
         prices_period_end = datetime.datetime.strptime(end, "%Y-%m-%d").replace(
@@ -42,9 +55,8 @@ async def _prices_for_current_period(timezone_datetime: datetime.datetime, tz: Z
 
 
 async def _price(current_datetime: datetime.datetime, valle: str, llano: str, punta: str) -> float | None:
-    tz = await async_get_time_zone("Europe/Madrid")
-    timezone_datetime = current_datetime.astimezone(tz)
-    prices_of_the_period = await _prices_for_current_period(timezone_datetime, tz)
+    timezone_datetime = await _madrid_time(current_datetime)
+    prices_of_the_period = await _prices_for_current_period(timezone_datetime)
     if prices_of_the_period is None:
         return None
     current_period = await period(current_datetime)
@@ -63,16 +75,14 @@ async def price_generation_kwh(current_datetime: datetime.datetime) -> float | N
     return await _price(current_datetime, 'valle_generation_kwh', 'llano_generation_kwh', 'punta_generation_kwh')
 
 async def compensation(current_datetime: datetime.datetime) -> float | None:
-    tz = await async_get_time_zone("Europe/Madrid")
-    timezone_datetime = current_datetime.astimezone(tz)
-    prices_of_the_period = await _prices_for_current_period(timezone_datetime, tz)
+    timezone_datetime = await _madrid_time(current_datetime)
+    prices_of_the_period = await _prices_for_current_period(timezone_datetime)
     if prices_of_the_period is None:
         return None
     return prices_of_the_period['compensation']
 
 async def period(current_datetime: datetime.datetime) -> str:
-    tz = await async_get_time_zone("Europe/Madrid")
-    timezone_datetime = current_datetime.astimezone(tz)
+    timezone_datetime = await _madrid_time(current_datetime)
     if is_tariff_holiday(timezone_datetime):
         return "P3"
     weekday = timezone_datetime.isoweekday()
@@ -85,4 +95,3 @@ async def period(current_datetime: datetime.datetime) -> str:
         return "P2"
     else:
         return "P1"
-
