@@ -7,9 +7,9 @@ from custom_components.som_energia import DOMAIN
 
 SENSORS = [
     "sensor.som_energia_electricity_price",
-    "sensor.som_energia_generation_kwh_electricity_price",
-    "sensor.som_energia_electricity_compensation",
-    "sensor.som_energia_electricity_period",
+    "sensor.som_energia_generation_kwh_price",
+    "sensor.som_energia_surplus_compensation",
+    "sensor.som_energia_tariff_period",
 ]
 
 

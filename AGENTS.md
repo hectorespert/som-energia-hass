@@ -28,9 +28,14 @@ pytest -k "holiday"                    # by name
 pytest --cov=custom_components --cov-report=term-missing
 ```
 
-CI (`.github/workflows/python.yaml`) runs on Python 3.12; the devcontainer image is
-3.13. There is no linter or formatter wired into CI — `setup.cfg` carries flake8 /
-isort / mypy settings that nothing currently invokes.
+CI (`.github/workflows/python.yaml`) and the devcontainer image both run Python 3.13.
+**Do not lower the CI Python version.** Home Assistant declares
+`requires-python >= 3.13` from 2025.3.0 onwards, so on a 3.12 runner pip cannot install
+any newer HA: it backtracks to `pytest-homeassistant-custom-component==0.13.205`, which
+pulls `homeassistant==2025.1.4`. CI ran that way for months and looked green while
+testing against a January release — the failure only surfaced when a symbol added in
+2025.3.0 was used. There is no linter or formatter wired into CI — `setup.cfg` carries
+flake8 / isort / mypy settings that nothing currently invokes.
 
 Run a real Home Assistant against the integration with the devcontainer
 (`.devcontainer/docker-compose.yml`): it mounts `custom_components/som_energia`
