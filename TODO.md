@@ -232,7 +232,7 @@ regression net to land against.
 
 ## Quality
 
-### 8. Entity names are hardcoded English, so the translations never apply
+### 8. ~~Entity names are hardcoded English, so the translations never apply~~ — fixed
 
 All four sensors set `_attr_name` directly (`sensor.py:40,64,88,112`) instead of using
 `_attr_has_entity_name` with a `translation_key`. As a result `translations/es.json`
@@ -242,6 +242,39 @@ whose README leads in Spanish.
 Three of the four `SensorEntityDescription`s also share `key='electricity_price'`
 (lines 42, 66, 90), including the compensation sensor, which is wrong on its own terms
 and blocks deriving translation keys from `key`.
+
+Each sensor now sets `_attr_has_entity_name = True` and a `translation_key` on its
+`entity_description`, with the four `key`/`translation_key` values now distinct
+(`price`, `price_generation_kwh`, `compensation`, `period`). `strings.json` and both
+`translations/en.json` and `translations/es.json` carry an `entity.sensor.*.name` for
+each, so the Spanish name is what Spanish-speaking users actually see.
+
+None of the entities have a `device_info` yet (that is item 9), and
+`_friendly_name_internal` only prefixes the device name when `device_entry` is set —
+verified with `hass.states.get(...).name` in `tests/test_sensor.py`: the resulting
+`friendly_name` is the translated string with no prefix, e.g. `"Electricity price"` /
+`"Precio de la electricidad"`, not `"Som Energia Electricity price"`.
+
+The `_attr_unique_id` values are unchanged, so existing installations keep their
+`entity_id`, their history and their automations — `async_calculate_suggested_object_id`
+only reads `entity.suggested_object_id` when the registry has no matching unique_id yet,
+and `tests/test_sensor.py::test_existing_entity_ids_survive_setup_and_reload` pins that
+down by pre-registering the old `entity_id`s and asserting they survive setup and reload.
+
+New installations do get different `entity_id`s, though, because HA derives the object id
+from the (now translated, no-longer-`som_energia_`-prefixed) name when there is no
+registry entry to reuse — and it does so from whatever language the instance runs in, so
+the generated id differs by locale too:
+
+```
+sensor.som_energia_electricity_price                  -> sensor.electricity_price (en) / sensor.precio_de_la_electricidad (es)
+sensor.som_energia_generation_kwh_electricity_price    -> sensor.generation_kwh_price (en) / sensor.precio_generacion_kwh (es)
+sensor.som_energia_electricity_compensation            -> sensor.surplus_compensation (en) / sensor.compensacion_de_excedentes (es)
+sensor.som_energia_electricity_period                  -> sensor.tariff_period (en) / sensor.periodo_tarifario (es)
+```
+
+Only new installs are affected — see the PR that fixed this item for the full
+compatibility writeup.
 
 ### 9. The period sensor should be an enum, and the entities have no device
 

@@ -6,10 +6,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.som_energia import DOMAIN
 
 SENSORS = [
-    "sensor.som_energia_electricity_price",
-    "sensor.som_energia_generation_kwh_electricity_price",
-    "sensor.som_energia_electricity_compensation",
-    "sensor.som_energia_electricity_period",
+    "sensor.electricity_price",
+    "sensor.generation_kwh_price",
+    "sensor.surplus_compensation",
+    "sensor.tariff_period",
 ]
 
 

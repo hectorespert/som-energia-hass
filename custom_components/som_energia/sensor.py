@@ -34,12 +34,14 @@ SCAN_INTERVAL = timedelta(minutes=1)
 class ElectricityPriceSensor(SensorEntity):
     """Class to hold the prices of electricity as a sensor."""
 
+    _attr_has_entity_name = True
+
     def __init__(self) -> None:
         """Initialize the sensor."""
         self._attr_unique_id = 'som_energia_electricity_price'
-        self._attr_name = 'Som Energia electricity price'
         self.entity_description = SensorEntityDescription(
-            key='electricity_price',
+            key='price',
+            translation_key='price',
             icon="mdi:currency-eur",
             native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
             state_class=SensorStateClass.MEASUREMENT,
@@ -58,12 +60,14 @@ class ElectricityPriceSensor(SensorEntity):
 class GenerationKWHElectricityPriceSensor(SensorEntity):
     """Class to hold the prices of electricity as a sensor."""
 
+    _attr_has_entity_name = True
+
     def __init__(self) -> None:
         """Initialize the sensor."""
         self._attr_unique_id = 'som_energia_generation_kwh_electricity_price'
-        self._attr_name = 'Som Energia Generation kWh electricity price'
         self.entity_description = SensorEntityDescription(
-            key='electricity_price',
+            key='price_generation_kwh',
+            translation_key='price_generation_kwh',
             icon="mdi:currency-eur",
             native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
             state_class=SensorStateClass.MEASUREMENT,
@@ -82,12 +86,14 @@ class GenerationKWHElectricityPriceSensor(SensorEntity):
 class ElectricityCompensationSensor(SensorEntity):
     """Class to hold the compensation of electricity as a sensor."""
 
+    _attr_has_entity_name = True
+
     def __init__(self) -> None:
         """Initialize the sensor."""
         self._attr_unique_id = 'som_energia_electricity_compensation'
-        self._attr_name = 'Som Energia electricity compensation'
         self.entity_description = SensorEntityDescription(
-            key='electricity_price',
+            key='compensation',
+            translation_key='compensation',
             icon="mdi:currency-eur",
             native_unit_of_measurement=f"{CURRENCY_EURO}/{UnitOfEnergy.KILO_WATT_HOUR}",
             state_class=SensorStateClass.MEASUREMENT,
@@ -106,12 +112,14 @@ class ElectricityCompensationSensor(SensorEntity):
 class ElectricityPeriodSensor(SensorEntity):
     """Class to hold the current electricity tariff period as a sensor."""
 
+    _attr_has_entity_name = True
+
     def __init__(self) -> None:
         """Initialize the sensor."""
         self._attr_unique_id = 'som_energia_electricity_period'
-        self._attr_name = 'Som Energia electricity period'
         self.entity_description = SensorEntityDescription(
-            key='electricity_period',
+            key='period',
+            translation_key='period',
             icon="mdi:clock-outline",
         )
         self._state = None
