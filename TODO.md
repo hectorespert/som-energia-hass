@@ -397,34 +397,43 @@ The dead `[tool:pytest]` section that used to sit in `setup.cfg` — shadowed by
 `pytest.ini` — was removed with item 1. `pytest.ini` is now the only pytest config;
 `setup.cfg`'s `[coverage:*]` sections remain live.
 
-### 11. The CSV is re-read on every sensor update
+### 11. ~~The CSV is re-read on every sensor update~~ — fixed
 
-`_read_price_csv` re-reads and re-parses `prices.csv` from disk on every call. The result
-cannot change while Home Assistant is running: the CSV ships inside the integration and
-only changes on upgrade, which restarts HA anyway.
+`_read_price_csv` re-read and re-parsed `prices.csv` from disk on every call: 4320 reads
+a day, and 4320 executor round-trips with them. The result cannot change while Home
+Assistant is running — the CSV ships inside the integration and only changes on upgrade,
+which restarts HA anyway.
 
-With four sensors on a one-minute `SCAN_INTERVAL`, measured on Python 3.13:
+Measured on Python 3.13, the cost was not where this item originally claimed:
 
 ```
-_read_price_csv  0.031 ms x 4320 calls/day = 0.14 s CPU/day, 4320 executor round-trips
+_read_price_csv        0.031 ms   <- en el executor
+barrido de fechas      0.046 ms   <- en el event loop, cada llamada
 ```
 
-**The CPU cost is not the argument** — 0.14 s/day is nothing, and an earlier revision of
-this file deliberately left the item out for exactly that reason. What makes it worth
-listing is the ratio: one `functools.cache` removes all 4320 file reads per day.
+`_prices_for_current_period` rebuilt two aware datetimes per row with `strptime` on every
+lookup, which cost more than reading the file and ran on the loop. Rows are now keyed by
+`datetime.date` parsed once, and matched with `start <= timezone_datetime.date() <= end`,
+which is the same test as the old `00:00:00` -> `23:59:59.999999` bounds.
 
-This item used to cover `_holidays_in_spain` too, at 0.65 s/day and another 4320 round
-trips. Item 4 deleted that function outright, which is the cheaper fix by a distance.
+The table is parsed once per process into a module-level `_price_table`, warmed from
+`async_setup_entry`. **The read stays in the executor**, contrary to what this item used
+to suggest: HA's `block_async_io` patches `builtins.open` and exempts only `/proc`, so
+reading on the loop logs `Detected blocking call to open` — the exact warning the
+executor was added for. It is declared `strict=False` (warns, never raises) and
+`skip_for_tests=True`, so a read that drifted back onto the loop would pass CI green and
+only show up in users' logs. `test_the_price_csv_is_never_parsed_on_the_event_loop`
+records the thread that parses and asserts it is not the loop thread.
 
-Two caveats for whoever picks this up:
+```
+ciclo de 4 sensores   master 0.610 ms -> 0.191 ms
+lecturas de disco     4320/día -> 1 por arranque
+```
 
-- `@cache` does **not** remove the executor round-trip on its own — `run_in_executor` still
-  dispatches to a thread even when the wrapped call returns instantly. Reading the cached
-  value directly on the event loop is what removes it, and that is safe once the call is a
-  pure in-memory lookup with no I/O.
-- `_read_price_csv` currently returns a fresh dict each call. Cached, every caller shares
-  one object, so it must not be mutated. Nothing mutates it today, but nothing enforces it
-  either.
+The shared table is typed `Mapping`, not `dict`, so mypy rejects mutation at every call
+site — the second caveat this item raised is now enforced by the CI gate from item 10.
+Equivalence checked the same way as item 5: 79722 momentos (hourly 2021-12 to 2031-01,
+plus every row boundary at +/-1 microsecond), 0 discrepancias.
 
 ### 12. ~~`config_flow.py` is excluded from the mypy gate~~ — fixed before merge
 
@@ -487,6 +496,7 @@ Now `float(state.state) > 0.0`. The period sensor was never affected: it asserts
 
 Found by Copilot reviewing #79. It predates that PR — the assertion came from the original
 test file — so it was left out of #79's scope rather than folded in silently.
+
 ### 14. ~~`tests/bandit.yaml` listed two checks bandit no longer has~~ — fixed
 
 The profile named `B320` and `B325`, which bandit dropped. Every run since item 10 wired
@@ -511,3 +521,27 @@ Worth noting for whoever revisits this: the profile as a whole looks inherited r
 chosen. It is a list of XML parsing, `mktemp`, `eval` and `shell=True` checks, and this
 integration parses one CSV and does no XML, no subprocess and no temp files. Not changed
 here — narrowing or widening the profile is a security decision, not a cleanup.
+
+### 15. Each sensor recomputes the same values independently
+
+The four sensors share one `SCAN_INTERVAL` and each calls the price functions directly,
+so a single tick repeats the same work. Counted, not inferred:
+
+```
+por tick de 4 sensores:  6 conversiones de zona horaria, 3 barridos de la tabla
+```
+
+`price` and `price_generation_kwh` each call `period` internally, which converts the time
+zone a second time; `compensation` and `period` convert it again on their own. Since item
+11 the remaining cost is that conversion and the row scan — no I/O at all — so this is
+~0.19 ms a minute, and **CPU is not the argument here either**.
+
+What a `DataUpdateCoordinator` would buy is atomicity: the four sensors each call
+`utcnow()` separately, so a tick that lands on a period boundary can publish a period
+sensor reading P2 next to a price already computed as P1. The window is microseconds
+wide and no user has reported it.
+
+Against that, AGENTS.md documents the current shape as deliberate: the sensors hold no
+coordinator and no shared state, which is what makes them testable as pure functions of
+the clock. Do not treat this as a defect to fix on sight — it is a trade to make
+consciously, and the atomicity has to be worth the coupling.

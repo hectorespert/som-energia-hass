@@ -86,9 +86,9 @@ custom_components/som_energia/
   because it moves, not as a special case; the same clause drops Maundy Thursday. Don't
   "fix" this, and don't add Semana Santa.
 
-`prices.csv` maps date ranges to per-period prices. Row keys are
-`(Inicio Periodo, Final Periodo)` and the *first* matching row wins, so rows must stay
-in chronological order and must not overlap. The open-ended current row ends at
+`prices.csv` maps date ranges to per-period prices. Row keys are the parsed
+`(Inicio Periodo, Final Periodo)` dates and the *first* matching row wins, so rows must
+stay in chronological order and must not overlap. The open-ended current row ends at
 `2999-12-31` — when adding a new price period, close that row and add a new
 `2999-12-31` one. Empty cells parse as `0.0`.
 
@@ -105,6 +105,16 @@ reading `prices.csv` — is wrapped in
 `homeassistant.util.dt.async_get_time_zone` rather than `ZoneInfo(...)`. Keep any new
 file, network, or heavy-CPU work off the loop the same way; this pattern exists because
 of real "blocking call detected" warnings in HA logs.
+
+That read now happens **once per process**: `_read_price_csv` fills a module-level
+`_price_table`, warmed from `async_setup_entry` via `async_load_prices`, and every
+lookup afterwards is an in-memory scan with no thread hop. Keep the read in the
+executor anyway — HA's `block_async_io` patches `builtins.open` and exempts only
+`/proc`, so parsing on the loop logs a blocking-call warning even the one time. It
+warns rather than raising and is skipped under tests, so nothing but
+`test_the_price_csv_is_never_parsed_on_the_event_loop` would catch the regression. The
+table is typed `Mapping`, not `dict`: it is shared by every caller and mypy is what
+stops anyone mutating it.
 
 Import that helper **from `homeassistant.util.dt`, never from `aiozoneinfo`**. HA's
 wrapper is a two-line delegation to that package, so it is the same lookup and the same
