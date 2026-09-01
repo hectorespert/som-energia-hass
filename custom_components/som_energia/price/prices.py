@@ -1,4 +1,5 @@
 from asyncio import get_running_loop
+from collections.abc import Mapping
 import csv
 import datetime
 import os
@@ -10,14 +11,29 @@ from custom_components.som_energia.price.tariff_holiday import is_tariff_holiday
 
 TIME_ZONE = "Europe/Madrid"
 
+# Mapping typing, not dict, so mypy rejects any mutation: the parsed table is shared by
+# every caller for the life of the process.
+PriceTable = Mapping[tuple[datetime.date, datetime.date], Mapping[str, float]]
 
-def _read_price_csv() -> dict:
+# Parsed once per process. prices.csv ships inside the integration and only changes on
+# upgrade, which restarts Home Assistant, so there is nothing to invalidate.
+_price_table: PriceTable | None = None
+
+
+def _read_price_csv() -> PriceTable:
+    """Parse prices.csv. Blocking; only reachable through _get_price_table."""
     file_path = os.path.join(os.path.dirname(__file__), "prices.csv")
-    prices_data = {}
-    with open(file_path) as file:
+    prices_data: dict[tuple[datetime.date, datetime.date], Mapping[str, float]] = {}
+    # Explicit encoding: the header carries "Compensación", so a C/POSIX locale would
+    # otherwise resolve to ASCII and raise UnicodeDecodeError. newline="" is what the
+    # csv module documents for its readers.
+    with open(file_path, encoding="utf-8", newline="") as file:
         reader = csv.DictReader(file)
         for row in reader:
-            period = (row["Inicio Periodo"], row["Final Periodo"])
+            period = (
+                datetime.datetime.strptime(row["Inicio Periodo"], "%Y-%m-%d").date(),
+                datetime.datetime.strptime(row["Final Periodo"], "%Y-%m-%d").date(),
+            )
             prices_data[period] = {
                 "punta": float(row["Punta"] if row["Punta"] != "" else 0.0),
                 "llano": float(row["Llano"] if row["Llano"] != "" else 0.0),
@@ -33,6 +49,27 @@ def _read_price_csv() -> dict:
     return prices_data
 
 
+async def _get_price_table() -> PriceTable:
+    """Return the parsed price table, reading prices.csv at most once per process.
+
+    The read stays in the executor even though it happens only once: Home Assistant
+    patches builtins.open and logs a blocking-call warning for any read on the event
+    loop. Every later call is an in-memory lookup with no thread hop.
+
+    No lock: async_setup_entry warms this before any sensor runs, and two cold callers
+    racing would only parse the same immutable table twice.
+    """
+    global _price_table
+    if _price_table is None:
+        _price_table = await get_running_loop().run_in_executor(None, _read_price_csv)
+    return _price_table
+
+
+async def async_load_prices() -> None:
+    """Warm the price table during setup so no sensor update ever waits on disk."""
+    await _get_price_table()
+
+
 async def _madrid_time(current_datetime: datetime.datetime) -> datetime.datetime:
     """Convert to Spanish local time, which is what every tariff rule is defined in."""
     tz = await async_get_time_zone(TIME_ZONE)
@@ -43,15 +80,13 @@ async def _madrid_time(current_datetime: datetime.datetime) -> datetime.datetime
     return current_datetime.astimezone(tz)
 
 
-async def _prices_for_current_period(timezone_datetime: datetime.datetime) -> dict | None:
-    prices_data = await get_running_loop().run_in_executor(None, _read_price_csv)
-    tz = timezone_datetime.tzinfo
-    for (start, end), prices_of_the_period in prices_data.items():
-        prices_period_start = datetime.datetime.strptime(start, "%Y-%m-%d").replace(tzinfo=tz)
-        prices_period_end = datetime.datetime.strptime(end, "%Y-%m-%d").replace(
-            hour=23, minute=59, second=59, microsecond=999999, tzinfo=tz
-        )
-        if prices_period_start <= timezone_datetime <= prices_period_end:
+async def _prices_for_current_period(timezone_datetime: datetime.datetime) -> Mapping[str, float] | None:
+    # Row bounds are whole days in Spanish local time, so comparing dates is the same
+    # test as the old 00:00:00 -> 23:59:59.999999 datetime bounds, without rebuilding
+    # two aware datetimes per row on every lookup.
+    current_date = timezone_datetime.date()
+    for (start, end), prices_of_the_period in (await _get_price_table()).items():
+        if start <= current_date <= end:
             return prices_of_the_period
     return None
 

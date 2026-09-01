@@ -6,6 +6,7 @@ from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN, PLATFORMS
+from .price.prices import async_load_prices
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -17,6 +18,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Som Energia from a config entry."""
+    # Parse prices.csv once, here, where blocking work already belongs. Sensor
+    # updates then never touch the disk and never hop to the executor.
+    await async_load_prices()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 

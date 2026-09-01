@@ -1,11 +1,16 @@
 from datetime import datetime
+import os
+import pathlib
+import subprocess
+import sys
+import threading
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from homeassistant.exceptions import HomeAssistantError
 import pytest
 
-from custom_components.som_energia.price import compensation, price
+from custom_components.som_energia.price import compensation, price, prices
 from custom_components.som_energia.price.prices import period, price_generation_kwh
 
 
@@ -471,3 +476,90 @@ async def test_price_refuses_when_the_time_zone_is_unavailable():
     ):
         with pytest.raises(HomeAssistantError):
             await price(monday)
+
+
+async def test_the_price_csv_is_parsed_once_for_many_lookups():
+    """prices.csv ships inside the integration and cannot change while Home Assistant
+    is running, so re-reading it on every sensor update is pure waste. Four sensors on
+    a one-minute SCAN_INTERVAL used to mean 4320 reads a day."""
+    monday = datetime(2022, 1, 24, 10, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    reads = 0
+    real_read = prices._read_price_csv
+
+    def counting_read():
+        nonlocal reads
+        reads += 1
+        return real_read()
+
+    with patch(
+        "custom_components.som_energia.price.prices._read_price_csv",
+        new=counting_read,
+    ):
+        for _ in range(5):
+            assert await price(monday) == 0.396
+            assert await price_generation_kwh(monday) == 0.236
+            assert await compensation(monday) == 0.000
+            assert await period(monday) == "P1"
+
+    assert reads == 1
+    assert await prices._get_price_table() is await prices._get_price_table()
+
+
+async def test_the_price_csv_is_never_parsed_on_the_event_loop():
+    """Home Assistant patches builtins.open and logs a blocking-call warning for any
+    read on the event loop. The warning is non-strict and skipped under tests, so
+    nothing else here would catch the read drifting out of the executor."""
+    loop_thread = threading.current_thread()
+    parsing_threads = []
+    real_read = prices._read_price_csv
+
+    def recording_read():
+        parsing_threads.append(threading.current_thread())
+        return real_read()
+
+    with patch(
+        "custom_components.som_energia.price.prices._read_price_csv",
+        new=recording_read,
+    ):
+        await prices.async_load_prices()
+
+    assert parsing_threads
+    assert loop_thread not in parsing_threads
+
+
+async def test_price_period_bounds_include_the_whole_last_day():
+    """Rows are matched by date now, not by rebuilt 00:00:00 -> 23:59:59.999999
+    datetime bounds; the last microsecond of a row must still belong to it."""
+    last = datetime(2025, 5, 31, 23, 59, 59, 999999, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price(last) == 0.127
+
+    first = datetime(2025, 6, 1, 0, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
+    assert await price(first) == 0.119
+
+
+def test_the_price_csv_is_read_as_utf8_regardless_of_the_locale():
+    """The header carries "Compensación". With no explicit encoding, open() resolves one
+    from the locale, and a C/POSIX locale resolves to ASCII:
+
+        UnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 39
+
+    The table is parsed during async_setup_entry, so that would take the whole config
+    entry down rather than one sensor update. The locale is fixed per process and cannot
+    be patched in, hence the subprocess.
+    """
+    repo_root = pathlib.Path(__file__).parents[2]
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from custom_components.som_energia.price.prices import _read_price_csv;"
+            "print(len(_read_price_csv()))",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        env={**os.environ, "LC_ALL": "C", "LANG": "C", "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert int(result.stdout.strip()) > 0

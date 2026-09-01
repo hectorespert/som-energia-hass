@@ -47,6 +47,11 @@ value and the test asserts the wrong thing while still passing.
   `run_in_executor`, and timezone lookups use
   `homeassistant.util.dt.async_get_time_zone` rather than `ZoneInfo(...)`. Flag any new
   file, network or heavy-CPU work placed directly on the loop.
+- The CSV is parsed once into the module-level `_price_table` and shared from there. Do
+  not suggest dropping the `run_in_executor` now that the read happens once — HA patches
+  `builtins.open` and warns for any read on the loop, including the first. Do not suggest
+  re-typing the shared table as `dict`: `Mapping` is what makes mypy reject mutation of an
+  object every caller holds.
 - That helper must come from `homeassistant.util.dt`, never from `aiozoneinfo` directly:
   the package is an undeclared internal HA dependency. Flag any reintroduced
   `from aiozoneinfo import ...`. Its `None` return is handled once, in `_madrid_time`;
