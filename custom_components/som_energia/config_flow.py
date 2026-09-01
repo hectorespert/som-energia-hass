@@ -21,6 +21,4 @@ class SomEnergiaConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is None:
             return self.async_show_form(step_id="user", data_schema=STEP_USER_DATA_SCHEMA)
 
-        await self.async_set_unique_id('som_energia_unique')
-        self._abort_if_unique_id_configured()
         return self.async_create_entry(title='Som Energia', data=user_input)
