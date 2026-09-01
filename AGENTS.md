@@ -47,8 +47,10 @@ put pytest settings there.
 
 `[coverage:report] exclude_lines` entries are **regexes matched as substrings**, and
 coverage excludes the whole clause under a match. An unanchored pattern there once hid the
-entire config flow while the total still read 100% — see item 1 of TODO.md. Anchor
-anything you add, and check `excluded_lines` in `--cov-report=json` after touching it.
+entire config flow while the total still read 100% — see item 1 of TODO.md. Anchor anything
+that names code (`^\s*raise NotImplementedError`); `pragma: no cover` is the exception and
+stays unanchored, since it is a trailing marker rather than a statement. After touching the
+section, check `excluded_lines` in `--cov-report=json` — it should be empty.
 
 ## Architecture
 

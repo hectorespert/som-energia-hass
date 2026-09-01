@@ -56,8 +56,9 @@ value and the test asserts the wrong thing while still passing.
 `setup.cfg` holds only the `[coverage:*]` sections.
 
 Entries under `[coverage:report] exclude_lines` are regexes matched as substrings, and
-coverage drops the entire clause under a match. Flag any unanchored pattern added there —
-one of them previously hid the whole config flow while the total still reported 100%.
+coverage drops the entire clause under a match. Flag any added pattern that names code and
+is not anchored — one of them previously hid the whole config flow while the total still
+reported 100%. `pragma: no cover` is deliberately unanchored; it is a trailing marker.
 
 Price and period tests are written as explicit datetime → expected-value assertions.
 Follow that style rather than introducing parametrisation.
