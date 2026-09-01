@@ -219,16 +219,46 @@ resolves `homeassistant==2026.2.3`. `tests/test_init.py` (setup, unload, reload)
 same code paths and stayed green with no changes; full suite: 114 tests, 157 statements,
 0 missed, 100% coverage, `excluded_lines` empty.
 
-### 7. The unique-id hack predates `single_config_entry`
+### 7. ~~The unique-id hack predates `single_config_entry`~~ — fixed
 
-`config_flow.py` enforces single-instance behaviour by assigning a hardcoded unique id
-(`'som_energia_unique'`) and aborting on duplicates. Home Assistant now supports
-`"single_config_entry": true` in `manifest.json`, which expresses the same intent
-declaratively.
+`config_flow.py` enforced single-instance behaviour by assigning a hardcoded unique id
+(`'som_energia_unique'`) and aborting on duplicates. `manifest.json` now declares
+`"single_config_entry": true` instead, and `async_step_user` no longer calls
+`async_set_unique_id` / `_abort_if_unique_id_configured`.
 
-`tests/test_config_flow.py` now covers the form step, entry creation and the
-single-instance abort (see item 1), so the switch to `single_config_entry` has a
-regression net to land against.
+The two behave differently, confirmed by running the flow rather than reading it:
+
+```
+before: async_step_user runs, calls async_set_unique_id, then
+        _abort_if_unique_id_configured aborts from inside the handler,
+        reason "already_configured" (this integration's own strings.json)
+after:  FlowManager.async_init aborts before the handler is ever entered —
+        async_configure on the returned flow_id then raises UnknownFlow, because
+        the flow was never registered in `_progress`. Confirmed reason:
+        {'type': ABORT, 'reason': 'single_instance_allowed',
+         'translation_domain': 'homeassistant'}
+```
+
+`translation_domain: "homeassistant"` means the string comes from HA core's own
+`strings.json` (`config.abort.single_instance_allowed`), not from this integration's —
+so `strings.json` and both `translations/*.json` needed no new entry. The
+`already_configured` string they carried was for the old reason and is now unused;
+it stays, since removing it is outside this fix's scope and it is harmless dead weight.
+
+`single_config_entry` blocks on the domain having *any* entry
+(`ConfigEntries.async_has_entries`), not on unique-id matching, so it makes no
+difference whether an existing entry was created by the old flow and still carries
+`unique_id="som_energia_unique"` or has no unique_id at all — both block a second entry
+identically. Verified with a `MockConfigEntry(domain=DOMAIN,
+unique_id="som_energia_unique")` pre-added to `hass`, which still aborts a new flow with
+`single_instance_allowed`; that scenario is now `tests/test_config_flow.py::
+test_pre_existing_unique_id_entry_still_blocks_a_second_one`.
+
+`tests/test_config_flow.py` needed updating, not just reuse as a regression net: the
+created-entry assertion no longer expects `unique_id == "som_energia_unique"` (it is now
+`None`, since nothing sets it), and the duplicate-instance test no longer calls
+`async_configure` after `async_init`, since the second flow never reaches a state that
+accepts configuration.
 
 ## Quality
 
