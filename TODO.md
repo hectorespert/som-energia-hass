@@ -430,6 +430,18 @@ ciclo de 4 sensores   master 0.610 ms -> 0.191 ms
 lecturas de disco     4320/día -> 1 por arranque
 ```
 
+The CSV is now opened with `encoding="utf-8"` and `newline=""`. Copilot raised this
+reviewing the PR, and it is not theoretical — the header carries `Compensación`, so with
+the encoding left to the locale a C/POSIX environment resolves ASCII and dies:
+
+```
+UnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 39
+```
+
+It predates this change, but caching made it worse: parsing during `async_setup_entry`
+turns a per-update exception into a config entry that never sets up. Pinned by a test
+that reparses in a subprocess under `LC_ALL=C`, since the locale cannot be patched in.
+
 The shared table is typed `Mapping`, not `dict`, so mypy rejects mutation at every call
 site — the second caveat this item raised is now enforced by the CI gate from item 10.
 Equivalence checked the same way as item 5: 79722 momentos (hourly 2021-12 to 2031-01,

@@ -24,7 +24,10 @@ def _read_price_csv() -> PriceTable:
     """Parse prices.csv. Blocking; only reachable through _get_price_table."""
     file_path = os.path.join(os.path.dirname(__file__), "prices.csv")
     prices_data: dict[tuple[datetime.date, datetime.date], Mapping[str, float]] = {}
-    with open(file_path) as file:
+    # Explicit encoding: the header carries "Compensación", so a C/POSIX locale would
+    # otherwise resolve to ASCII and raise UnicodeDecodeError. newline="" is what the
+    # csv module documents for its readers.
+    with open(file_path, encoding="utf-8", newline="") as file:
         reader = csv.DictReader(file)
         for row in reader:
             period = (

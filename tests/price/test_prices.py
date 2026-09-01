@@ -1,4 +1,8 @@
 from datetime import datetime
+import os
+import pathlib
+import subprocess
+import sys
 import threading
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
@@ -531,3 +535,31 @@ async def test_price_period_bounds_include_the_whole_last_day():
 
     first = datetime(2025, 6, 1, 0, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
     assert await price(first) == 0.119
+
+
+def test_the_price_csv_is_read_as_utf8_regardless_of_the_locale():
+    """The header carries "Compensación". With no explicit encoding, open() resolves one
+    from the locale, and a C/POSIX locale resolves to ASCII:
+
+        UnicodeDecodeError: 'ascii' codec can't decode byte 0xc3 in position 39
+
+    The table is parsed during async_setup_entry, so that would take the whole config
+    entry down rather than one sensor update. The locale is fixed per process and cannot
+    be patched in, hence the subprocess.
+    """
+    repo_root = pathlib.Path(__file__).parents[2]
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "from custom_components.som_energia.price.prices import _read_price_csv;"
+            "print(len(_read_price_csv()))",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=repo_root,
+        env={**os.environ, "LC_ALL": "C", "LANG": "C", "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0"},
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert int(result.stdout.strip()) > 0
