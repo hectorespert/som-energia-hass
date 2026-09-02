@@ -150,7 +150,7 @@ The zone strings and the `zone` key are persisted on the config entry and must n
 renamed. Config flow `VERSION` is 2; `async_migrate_entry` stamps version 1 entries as
 peninsular, which is what they were, and the coordinator then reads
 `entry.data[CONF_ZONE]` outright. Don't give that read a default — a `.get(...,
-PENINSULA)` would turn a failed migration into a canarian install quietly served
+PENINSULA)` would turn a failed migration into a Canarian install quietly served
 peninsular hours, which is the one failure here that still looks plausible.
 
 ### Async discipline

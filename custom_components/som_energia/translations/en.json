@@ -11,7 +11,7 @@
                     "zone": "Supply zone"
                 },
                 "data_description": {
-                    "zone": "Which electrical system your supply point belongs to. Canarias counts the tariff hours on canarian time."
+                    "zone": "Which electrical system your supply point belongs to. The Canary Islands count the tariff hours on Canarian time."
                 }
             },
             "reconfigure": {
@@ -19,7 +19,7 @@
                     "zone": "Supply zone"
                 },
                 "data_description": {
-                    "zone": "Which electrical system your supply point belongs to. Canarias counts the tariff hours on canarian time."
+                    "zone": "Which electrical system your supply point belongs to. The Canary Islands count the tariff hours on Canarian time."
                 }
             }
         }
@@ -44,9 +44,9 @@
     "selector": {
         "zone": {
             "options": {
-                "peninsula": "Península",
-                "baleares": "Baleares",
-                "canarias": "Canarias"
+                "peninsula": "Mainland Spain",
+                "baleares": "Balearic Islands",
+                "canarias": "Canary Islands"
             }
         }
     }

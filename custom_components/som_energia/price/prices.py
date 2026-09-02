@@ -84,7 +84,7 @@ async def _local_time(current_datetime: datetime.datetime, zone: str) -> datetim
     """Convert to the zone's local time, which is what every tariff rule is defined in.
 
     Península and Baleares keep peninsular time; Canarias is an hour behind, and the
-    tariff hours there are counted against the canarian clock, so the conversion is the
+    tariff hours there are counted against the Canarian clock, so the conversion is the
     whole of what makes that zone different.
     """
     time_zone = ZONE_TIME_ZONES[zone]
@@ -142,7 +142,7 @@ async def current_prices(current_datetime: datetime.datetime, zone: str) -> Pric
     """Compute the whole snapshot from one instant: one conversion, one table scan.
 
     The zone is required rather than defaulted: this is what the coordinator calls, and
-    a zone that defaulted itself would publish peninsular hours to a canarian
+    a zone that defaulted itself would publish peninsular hours to a Canarian
     installation with nothing to show for it. The wrappers below default because they
     are the price API, not the path the sensors take.
     """

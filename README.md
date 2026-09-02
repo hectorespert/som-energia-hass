@@ -71,11 +71,12 @@ Provides:
 * Sensor with the information of the compensation price.
 * Sensor with the current tariff period (peak, flat, valley).
 
-Setting the integration up asks for the **supply zone**: Península, Baleares or Canarias.
-The periodos tariff is priced the same across the whole country, so the zone only decides
-which clock the tariff hours are counted on: Canarias is an hour behind and its periods
-change on canarian time. Península and Baleares behave identically. If you move, change
-the zone through "Reconfigure" without losing the sensors' history.
+Setting the integration up asks for the **supply zone**: Mainland Spain, the Balearic
+Islands or the Canary Islands. The periodos tariff is priced the same across the whole
+country, so the zone only decides which clock the tariff hours are counted on: the Canary
+Islands are an hour behind and their periods change on Canarian time. Mainland Spain and
+the Balearic Islands behave identically. If you move, change the zone through
+"Reconfigure" without losing the sensors' history.
 
 ### Installation
 

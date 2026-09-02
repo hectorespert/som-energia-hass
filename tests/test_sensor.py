@@ -312,7 +312,7 @@ async def test_a_canarias_entry_publishes_the_canarian_period(hass, freezer):
 
 
 async def test_a_peninsula_entry_publishes_the_peninsular_period(hass, freezer):
-    """The other side of the same instant: what a canarian install must not show."""
+    """The other side of the same instant: what a Canarian install must not show."""
     freezer.move_to(datetime(2026, 1, 26, 13, 0, 0, tzinfo=ZoneInfo("UTC")))
 
     entry = MockConfigEntry(domain=DOMAIN, version=2, data={CONF_ZONE: PENINSULA})
