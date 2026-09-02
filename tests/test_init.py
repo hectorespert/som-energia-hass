@@ -4,6 +4,8 @@ from homeassistant.helpers import entity_platform
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.som_energia import DOMAIN
+from custom_components.som_energia.const import CONF_ZONE
+from custom_components.som_energia.price.zone import PENINSULA
 
 SENSORS = [
     "sensor.som_energia_electricity_price",
@@ -61,3 +63,32 @@ async def test_reload_entry_sets_the_platform_up_again(hass, caplog):
     # A reload that does not unload first fails with "has already been setup!",
     # which config_entries logs and swallows while leaving the entry LOADED.
     assert "already been setup" not in caplog.text
+
+
+async def test_a_version_1_entry_is_migrated_to_peninsula(hass):
+    """Version 1 stored no zone because there was only one. Every entry created before
+    the zone existed is peninsular by construction, and the coordinator reads the key
+    outright, so the migration has to put it there before setup reaches it."""
+    entry = MockConfigEntry(domain=DOMAIN, version=1, data={})
+    entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.state is ConfigEntryState.LOADED
+    assert entry.version == 2
+    assert entry.data == {CONF_ZONE: PENINSULA}
+    for entity_id in SENSORS:
+        assert hass.states.get(entity_id) is not None
+
+
+async def test_migrating_keeps_anything_else_already_on_the_entry(hass):
+    """The migration merges rather than replaces: a future key added alongside the zone
+    must survive an upgrade from version 1."""
+    entry = MockConfigEntry(domain=DOMAIN, version=1, data={"something_else": 1})
+    entry.add_to_hass(hass)
+
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.data == {"something_else": 1, CONF_ZONE: PENINSULA}

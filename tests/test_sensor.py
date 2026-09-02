@@ -13,8 +13,10 @@ from pytest_homeassistant_custom_component.common import (
 )
 
 from custom_components.som_energia import DOMAIN
+from custom_components.som_energia.const import CONF_ZONE
 from custom_components.som_energia.coordinator import UPDATE_INTERVAL
 from custom_components.som_energia.price.prices import current_prices
+from custom_components.som_energia.price.zone import CANARIAS, PENINSULA
 
 SENSORS = [
     "sensor.som_energia_electricity_price",
@@ -206,10 +208,10 @@ async def test_one_tick_computes_the_values_once_for_the_four_sensors(hass):
 
     computations = 0
 
-    async def counting_current_prices(current_datetime):
+    async def counting_current_prices(current_datetime, zone):
         nonlocal computations
         computations += 1
-        return await current_prices(current_datetime)
+        return await current_prices(current_datetime, zone)
 
     with patch(
         "custom_components.som_energia.coordinator.current_prices",
@@ -257,7 +259,7 @@ async def test_a_failed_update_takes_the_four_sensors_down_together(hass, caplog
     computation failed, instead of each holding whatever it last managed to compute."""
     await _setup_entry(hass)
 
-    async def unresolvable_time_zone(current_datetime):
+    async def unresolvable_time_zone(current_datetime, zone):
         raise HomeAssistantError("Time zone Europe/Madrid is not available")
 
     with patch(
@@ -277,7 +279,7 @@ async def test_a_failed_update_takes_the_four_sensors_down_together(hass, caplog
 async def test_a_failed_first_refresh_retries_the_entry(hass):
     """The first refresh is what parses prices.csv. If it fails the entry must be
     retried, not left loaded with four unavailable sensors."""
-    async def unresolvable_time_zone(current_datetime):
+    async def unresolvable_time_zone(current_datetime, zone):
         raise HomeAssistantError("Time zone Europe/Madrid is not available")
 
     with patch(
@@ -287,3 +289,36 @@ async def test_a_failed_first_refresh_retries_the_entry(hass):
         entry = await _setup_entry(hass)
 
     assert entry.state is ConfigEntryState.SETUP_RETRY
+
+
+async def test_a_canarias_entry_publishes_the_canarian_period(hass, freezer):
+    """End to end, and the only check that the zone survives the trip from the config
+    entry to the computation.
+
+    13:00 UTC is 14:00 in Madrid and already llano, but 13:00 in Las Palmas and still
+    punta. A coordinator that dropped the zone on the way to current_prices would
+    publish P2 here and look entirely plausible doing it, which is why the assertion is
+    on the sensor states rather than on the call.
+    """
+    freezer.move_to(datetime(2026, 1, 26, 13, 0, 0, tzinfo=ZoneInfo("UTC")))
+
+    entry = MockConfigEntry(domain=DOMAIN, version=2, data={CONF_ZONE: CANARIAS})
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.som_energia_tariff_period").state == "P1"
+    assert float(hass.states.get("sensor.som_energia_electricity_price").state) == 0.229
+
+
+async def test_a_peninsula_entry_publishes_the_peninsular_period(hass, freezer):
+    """The other side of the same instant: what a Canarian install must not show."""
+    freezer.move_to(datetime(2026, 1, 26, 13, 0, 0, tzinfo=ZoneInfo("UTC")))
+
+    entry = MockConfigEntry(domain=DOMAIN, version=2, data={CONF_ZONE: PENINSULA})
+    entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert hass.states.get("sensor.som_energia_tariff_period").state == "P2"
+    assert float(hass.states.get("sensor.som_energia_electricity_price").state) == 0.153

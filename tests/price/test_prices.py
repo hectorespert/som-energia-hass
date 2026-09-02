@@ -12,6 +12,13 @@ import pytest
 
 from custom_components.som_energia.price import compensation, price, prices
 from custom_components.som_energia.price.prices import period, price_generation_kwh
+from custom_components.som_energia.price.zone import (
+    BALEARES,
+    CANARIAS,
+    PENINSULA,
+    ZONE_TIME_ZONES,
+    ZONES,
+)
 
 
 async def test_price_on_monday():
@@ -572,25 +579,25 @@ async def test_current_prices_is_one_time_zone_conversion_and_one_table_scan():
     price_generation_kwh each called period internally, converting a second time."""
     monday = datetime(2022, 1, 24, 10, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
     counts = {"tz": 0, "scan": 0}
-    real_madrid_time = prices._madrid_time
+    real_local_time = prices._local_time
     real_prices_for_current_period = prices._prices_for_current_period
 
-    async def counting_madrid_time(current_datetime):
+    async def counting_local_time(current_datetime, zone):
         counts["tz"] += 1
-        return await real_madrid_time(current_datetime)
+        return await real_local_time(current_datetime, zone)
 
     async def counting_prices_for_current_period(timezone_datetime):
         counts["scan"] += 1
         return await real_prices_for_current_period(timezone_datetime)
 
     with patch(
-        "custom_components.som_energia.price.prices._madrid_time",
-        new=counting_madrid_time,
+        "custom_components.som_energia.price.prices._local_time",
+        new=counting_local_time,
     ), patch(
         "custom_components.som_energia.price.prices._prices_for_current_period",
         new=counting_prices_for_current_period,
     ):
-        snapshot = await prices.current_prices(monday)
+        snapshot = await prices.current_prices(monday, PENINSULA)
 
     assert counts == {"tz": 1, "scan": 1}
     assert snapshot == prices.PriceSnapshot(
@@ -606,7 +613,7 @@ async def test_current_prices_outside_every_price_period():
     prices.csv covers the date; the three prices are not."""
     before = datetime(2019, 6, 12, 12, 0, 0, tzinfo=ZoneInfo("Europe/Madrid"))
 
-    assert await prices.current_prices(before) == prices.PriceSnapshot(
+    assert await prices.current_prices(before, PENINSULA) == prices.PriceSnapshot(
         period="P1",
         price=None,
         price_generation_kwh=None,
@@ -627,8 +634,115 @@ async def test_the_individual_functions_agree_with_the_snapshot():
     ]
 
     for moment in moments:
-        snapshot = await prices.current_prices(moment)
+        snapshot = await prices.current_prices(moment, PENINSULA)
         assert await price(moment) == snapshot.price
         assert await price_generation_kwh(moment) == snapshot.price_generation_kwh
         assert await compensation(moment) == snapshot.compensation
         assert await period(moment) == snapshot.period
+
+
+async def test_canarias_reads_the_tariff_hours_on_canarian_time():
+    """The whole of what makes Canarias a separate zone.
+
+    Canarias is an hour behind the peninsula, and the 2.0TD hour ranges are counted
+    against the local clock, so the same instant sits in different periods on either
+    side. 13:00 UTC is 14:00 in Madrid, already llano, but still 13:00 and punta in Las
+    Palmas.
+    """
+    instant = datetime(2026, 1, 26, 13, 0, 0, tzinfo=ZoneInfo("UTC"))
+
+    assert await period(instant, PENINSULA) == "P2"
+    assert await period(instant, CANARIAS) == "P1"
+    assert await price(instant, PENINSULA) == 0.153
+    assert await price(instant, CANARIAS) == 0.229
+
+    # And the other way round, an hour earlier: punta on the peninsula, llano there.
+    instant = datetime(2026, 1, 26, 9, 0, 0, tzinfo=ZoneInfo("UTC"))
+
+    assert await period(instant, PENINSULA) == "P1"
+    assert await period(instant, CANARIAS) == "P2"
+
+
+async def test_canarias_keeps_its_hour_of_difference_through_dst():
+    """Both zones move their clocks on the same dates, so the gap is an hour all year.
+
+    Hardcoding a UTC offset instead of the zone would hold in winter and break every
+    summer, which is exactly the kind of failure that still looks like a plausible price.
+    """
+    summer = datetime(2026, 7, 6, 12, 0, 0, tzinfo=ZoneInfo("UTC"))
+
+    assert await period(summer, PENINSULA) == "P2"
+    assert await period(summer, CANARIAS) == "P1"
+
+
+async def test_canarias_crosses_into_the_next_day_an_hour_later():
+    """The zone changes the day type, not only the hour.
+
+    At 23:30 UTC on a Friday it is already Saturday in Madrid, so every hour is valle;
+    in Canarias it is still Friday evening and still llano. A conversion that ran on the
+    peninsular clock would publish the weekend a full hour early.
+    """
+    friday_night = datetime(2026, 1, 30, 23, 30, 0, tzinfo=ZoneInfo("UTC"))
+
+    assert await period(friday_night, PENINSULA) == "P3"
+    assert await period(friday_night, CANARIAS) == "P2"
+
+    # Same story for a tariff holiday: 6 January starts an hour later in the islands.
+    epiphany_eve = datetime(2026, 1, 5, 23, 30, 0, tzinfo=ZoneInfo("UTC"))
+
+    assert await period(epiphany_eve, PENINSULA) == "P3"
+    assert await period(epiphany_eve, CANARIAS) == "P2"
+
+
+async def test_baleares_is_peninsular_in_everything_this_integration_models():
+    """Baleares is a separate electrical system, but not a separate tariff zone here.
+
+    It keeps peninsular time, shares the hour table, and the periodos tariff is priced
+    once for the whole state — the zone-dependent prices are a property of the indexada
+    tariff, which this integration does not model. So the zone exists to match how Som
+    Energia asks where the supply point is, and must behave exactly like Península.
+    """
+    moments = [
+        datetime(2026, 1, 26, 13, 0, 0, tzinfo=ZoneInfo("UTC")),   # llano
+        datetime(2026, 1, 26, 9, 0, 0, tzinfo=ZoneInfo("UTC")),    # punta
+        datetime(2026, 1, 30, 23, 30, 0, tzinfo=ZoneInfo("UTC")),  # into the weekend
+        datetime(2026, 1, 5, 23, 30, 0, tzinfo=ZoneInfo("UTC")),   # into a holiday
+        datetime(2026, 7, 6, 12, 0, 0, tzinfo=ZoneInfo("UTC")),    # summer time
+    ]
+
+    for moment in moments:
+        assert await prices.current_prices(moment, BALEARES) == await prices.current_prices(
+            moment, PENINSULA
+        )
+
+
+async def test_the_prices_are_the_same_in_every_zone():
+    """Only the clock varies. If a zone ever gets its own price row, this test is the
+    one that has to be deleted deliberately rather than quietly stop meaning anything."""
+    # Chosen so the three zones agree on the period: 03:00 UTC is valle everywhere.
+    night = datetime(2026, 1, 26, 3, 0, 0, tzinfo=ZoneInfo("UTC"))
+
+    snapshots = [await prices.current_prices(night, zone) for zone in ZONES]
+
+    assert {snapshot.period for snapshot in snapshots} == {"P3"}
+    assert {snapshot.price for snapshot in snapshots} == {0.125}
+    assert {snapshot.compensation for snapshot in snapshots} == {0.030}
+
+
+async def test_every_zone_resolves_to_a_real_time_zone():
+    """ZONE_TIME_ZONES is what the config flow offers, so an unresolvable name there
+    would only surface as a HomeAssistantError once someone selected that zone."""
+    assert set(ZONES) == set(ZONE_TIME_ZONES)
+
+    monday = datetime(2026, 1, 26, 13, 0, 0, tzinfo=ZoneInfo("UTC"))
+    for zone in ZONES:
+        assert await period(monday, zone) in ("P1", "P2", "P3")
+
+
+async def test_an_unknown_zone_is_refused():
+    """Zones come off a stored config entry. A value that is not in the table must fail
+    loudly rather than fall back to peninsular hours."""
+    monday = datetime(2026, 1, 26, 13, 0, 0, tzinfo=ZoneInfo("UTC"))
+
+    with pytest.raises(KeyError):
+        await period(monday, "ceuta_melilla")

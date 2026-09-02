@@ -61,9 +61,23 @@ value and the test asserts the wrong thing while still passing.
   `UpdateFailed` wrapping in `_async_update_data`, are deliberate too.
 - That helper must come from `homeassistant.util.dt`, never from `aiozoneinfo` directly:
   the package is an undeclared internal HA dependency. Flag any reintroduced
-  `from aiozoneinfo import ...`. Its `None` return is handled once, in `_madrid_time`;
+  `from aiozoneinfo import ...`. Its `None` return is handled once, in `_local_time`;
   do not suggest dropping that guard as dead code, since `astimezone(None)` would
-  silently serve prices in the host's timezone rather than Madrid's.
+  silently serve prices in the host's timezone rather than the zone's.
+- `price/zone.py` maps the three supply zones to a time zone and **nothing else**. The
+  periodos tariff is priced once for the whole state, so do not suggest per-zone price
+  rows or a `Zona` column in `prices.csv`; zone-dependent pricing belongs to the
+  *indexada* tariff, which this integration does not model. Baleares maps to
+  `Europe/Madrid` on purpose and is therefore identical to Península — that is not a
+  copy-paste bug. Ceuta y Melilla is absent because Som Energia does not supply there;
+  it is also the only zone whose tariff *hours* differ, which is why `_period_of` takes
+  no zone.
+- The zone values stored on the config entry (`peninsula`, `baleares`, `canarias`) and
+  the `zone` key itself are persisted, so they must never be renamed. Config flow
+  `VERSION` is 2; `async_migrate_entry` stamps version 1 entries as peninsular, and the
+  coordinator then reads `entry.data[CONF_ZONE]` outright rather than defaulting — do
+  not suggest a `.get(..., PENINSULA)` fallback there, which would mask a failed
+  migration by quietly serving peninsular hours.
 - Adding a translatable string means editing `strings.json` **and** both
   `translations/en.json` and `translations/es.json`.
 - The README is bilingual, Spanish first and then English; both sections must stay in sync.
