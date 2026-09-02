@@ -18,6 +18,13 @@ Proporciona:
 * Sensor con la información del precio de compensación.
 * Sensor con el periodo tarifario actual (punta, llano, valle).
 
+Al configurar la integración se elige la **zona de suministro**: Península, Baleares o
+Canarias. La tarifa por periodos tiene el mismo precio en todo el Estado, así que la zona
+solo determina el reloj con el que se cuentan las franjas horarias: Canarias va una hora
+por detrás y sus periodos cambian a la hora canaria. Península y Baleares se comportan
+igual. Si te mudas, puedes cambiar la zona con «Reconfigurar» sin perder el historial de
+los sensores.
+
 ### Instalación
 
 #### Usando [HACS](https://hacs.xyz/) (recomendado)
@@ -63,6 +70,12 @@ Provides:
 * Sensor with the information of Som Energia's energy price.
 * Sensor with the information of the compensation price.
 * Sensor with the current tariff period (peak, flat, valley).
+
+Setting the integration up asks for the **supply zone**: Península, Baleares or Canarias.
+The periodos tariff is priced the same across the whole country, so the zone only decides
+which clock the tariff hours are counted on: Canarias is an hour behind and its periods
+change on canarian time. Península and Baleares behave identically. If you move, change
+the zone through "Reconfigure" without losing the sensors' history.
 
 ### Installation
 

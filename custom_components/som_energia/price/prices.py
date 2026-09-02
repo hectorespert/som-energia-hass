@@ -9,8 +9,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.util.dt import async_get_time_zone
 
 from custom_components.som_energia.price.tariff_holiday import is_tariff_holiday
-
-TIME_ZONE = "Europe/Madrid"
+from custom_components.som_energia.price.zone import PENINSULA, ZONE_TIME_ZONES
 
 # Mapping typing, not dict, so mypy rejects any mutation: the parsed table is shared by
 # every caller for the life of the process.
@@ -81,13 +80,19 @@ async def _get_price_table() -> PriceTable:
     return _price_table
 
 
-async def _madrid_time(current_datetime: datetime.datetime) -> datetime.datetime:
-    """Convert to Spanish local time, which is what every tariff rule is defined in."""
-    tz = await async_get_time_zone(TIME_ZONE)
+async def _local_time(current_datetime: datetime.datetime, zone: str) -> datetime.datetime:
+    """Convert to the zone's local time, which is what every tariff rule is defined in.
+
+    Península and Baleares keep peninsular time; Canarias is an hour behind, and the
+    tariff hours there are counted against the canarian clock, so the conversion is the
+    whole of what makes that zone different.
+    """
+    time_zone = ZONE_TIME_ZONES[zone]
+    tz = await async_get_time_zone(time_zone)
     if tz is None:
         # astimezone(None) would silently fall back to the host's local time and
         # serve the prices of the wrong hours, so refuse instead.
-        raise HomeAssistantError(f"Time zone {TIME_ZONE} is not available")
+        raise HomeAssistantError(f"Time zone {time_zone} is not available")
     return current_datetime.astimezone(tz)
 
 
@@ -133,9 +138,15 @@ def _price_for_period(
         return prices_of_the_period[valle]
 
 
-async def current_prices(current_datetime: datetime.datetime) -> PriceSnapshot:
-    """Compute the whole snapshot from one instant: one conversion, one table scan."""
-    timezone_datetime = await _madrid_time(current_datetime)
+async def current_prices(current_datetime: datetime.datetime, zone: str) -> PriceSnapshot:
+    """Compute the whole snapshot from one instant: one conversion, one table scan.
+
+    The zone is required rather than defaulted: this is what the coordinator calls, and
+    a zone that defaulted itself would publish peninsular hours to a canarian
+    installation with nothing to show for it. The wrappers below default because they
+    are the price API, not the path the sensors take.
+    """
+    timezone_datetime = await _local_time(current_datetime, zone)
     current_period = _period_of(timezone_datetime)
     prices_of_the_period = await _prices_for_current_period(timezone_datetime)
     if prices_of_the_period is None:
@@ -158,19 +169,19 @@ async def current_prices(current_datetime: datetime.datetime) -> PriceSnapshot:
     )
 
 
-async def price(current_datetime: datetime.datetime) -> float | None:
-    return (await current_prices(current_datetime)).price
+async def price(current_datetime: datetime.datetime, zone: str = PENINSULA) -> float | None:
+    return (await current_prices(current_datetime, zone)).price
 
 
-async def price_generation_kwh(current_datetime: datetime.datetime) -> float | None:
-    return (await current_prices(current_datetime)).price_generation_kwh
+async def price_generation_kwh(current_datetime: datetime.datetime, zone: str = PENINSULA) -> float | None:
+    return (await current_prices(current_datetime, zone)).price_generation_kwh
 
 
-async def compensation(current_datetime: datetime.datetime) -> float | None:
-    return (await current_prices(current_datetime)).compensation
+async def compensation(current_datetime: datetime.datetime, zone: str = PENINSULA) -> float | None:
+    return (await current_prices(current_datetime, zone)).compensation
 
 
-async def period(current_datetime: datetime.datetime) -> str:
+async def period(current_datetime: datetime.datetime, zone: str = PENINSULA) -> str:
     # Not routed through current_prices: the period needs no price row, and asking for
     # one would make the cheapest sensor pay for a table scan it does not use.
-    return _period_of(await _madrid_time(current_datetime))
+    return _period_of(await _local_time(current_datetime, zone))

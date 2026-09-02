@@ -9,7 +9,7 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import utcnow
 
-from custom_components.som_energia.const import DOMAIN
+from custom_components.som_energia.const import CONF_ZONE, DOMAIN
 from custom_components.som_energia.price.prices import PriceSnapshot, current_prices
 
 _LOGGER = logging.getLogger(__name__)
@@ -42,15 +42,18 @@ class SomEnergiaCoordinator(DataUpdateCoordinator[PriceSnapshot]):
             name=DOMAIN,
             update_interval=UPDATE_INTERVAL,
         )
+        # Read once, at construction: changing the zone reconfigures the entry, which
+        # reloads it and builds a new coordinator anyway.
+        self._zone = config_entry.data[CONF_ZONE]
 
     async def _async_update_data(self) -> PriceSnapshot:
         """Read the clock once and derive everything from that single instant."""
         try:
-            return await current_prices(utcnow())
+            return await current_prices(utcnow(), self._zone)
         except HomeAssistantError as error:
-            # The only way this fails is Europe/Madrid being unresolvable. UpdateFailed
-            # is the shape the coordinator understands: one line at error level and the
-            # four sensors go unavailable together, rather than an unexpected-exception
-            # traceback every minute. During setup it becomes ConfigEntryNotReady, so
-            # the entry is retried instead of left half up.
+            # The only way this fails is the zone's time zone being unresolvable.
+            # UpdateFailed is the shape the coordinator understands: one line at error
+            # level and the four sensors go unavailable together, rather than an
+            # unexpected-exception traceback every minute. During setup it becomes
+            # ConfigEntryNotReady, so the entry is retried instead of left half up.
             raise UpdateFailed(error) from error

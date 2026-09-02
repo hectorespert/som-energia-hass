@@ -1,13 +1,25 @@
 {
     "config": {
         "abort": {
-            "already_configured": "Device is already configured"
+            "already_configured": "Device is already configured",
+            "reconfigure_successful": "Re-configuration was successful"
         },
-        "error": {
-        },
+        "error": {},
         "step": {
             "user": {
                 "data": {
+                    "zone": "Supply zone"
+                },
+                "data_description": {
+                    "zone": "Which electrical system your supply point belongs to. Canarias counts the tariff hours on canarian time."
+                }
+            },
+            "reconfigure": {
+                "data": {
+                    "zone": "Supply zone"
+                },
+                "data_description": {
+                    "zone": "Which electrical system your supply point belongs to. Canarias counts the tariff hours on canarian time."
                 }
             }
         }
@@ -28,5 +40,14 @@
             }
         }
     },
-    "title": "Som Energia integration"
+    "title": "Som Energia integration",
+    "selector": {
+        "zone": {
+            "options": {
+                "peninsula": "Península",
+                "baleares": "Baleares",
+                "canarias": "Canarias"
+            }
+        }
+    }
 }
