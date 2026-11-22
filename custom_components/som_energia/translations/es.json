@@ -1,13 +1,25 @@
 {
     "config": {
         "abort": {
-            "already_configured": "El dispositivo ya está configurado"
+            "already_configured": "El dispositivo ya está configurado",
+            "reconfigure_successful": "La reconfiguración se ha realizado correctamente"
         },
-        "error": {
-        },
+        "error": {},
         "step": {
             "user": {
                 "data": {
+                    "zone": "Zona de suministro"
+                },
+                "data_description": {
+                    "zone": "A qué sistema eléctrico pertenece tu punto de suministro. Canarias cuenta las franjas horarias en hora canaria."
+                }
+            },
+            "reconfigure": {
+                "data": {
+                    "zone": "Zona de suministro"
+                },
+                "data_description": {
+                    "zone": "A qué sistema eléctrico pertenece tu punto de suministro. Canarias cuenta las franjas horarias en hora canaria."
                 }
             }
         }
@@ -28,5 +40,14 @@
             }
         }
     },
-    "title": "Integración Som Energia"
+    "title": "Integración Som Energia",
+    "selector": {
+        "zone": {
+            "options": {
+                "peninsula": "Península",
+                "baleares": "Baleares",
+                "canarias": "Canarias"
+            }
+        }
+    }
 }

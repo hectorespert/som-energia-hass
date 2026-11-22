@@ -65,19 +65,21 @@ section, check `excluded_lines` in `--cov-report=json` — it should be empty.
 custom_components/som_energia/
   __init__.py        setup/unload entry, forwards to PLATFORMS
   const.py           DOMAIN, PLATFORMS
-  config_flow.py     single-step, no user input, fixed unique_id
+  config_flow.py     single step, one field (the supply zone), plus reconfigure
   coordinator.py     one snapshot a minute, shared by the four sensors
   sensor.py          4 CoordinatorEntity classes, no polling of their own
   price/
     prices.py        period + price calculation (the actual domain logic)
     tariff_holiday.py  Spanish holiday lookup
+    zone.py            supply zone -> time zone
     prices.csv       the price table
 ```
 
 **The whole domain model lives in `price/prices.py`.** Everything flows from
 `period(datetime) -> "P1" | "P2" | "P3"`:
 
-- Time is converted to `Europe/Madrid` first — every calculation is in local Spanish
+- Time is converted to the entry's zone first — `Europe/Madrid` for Península and
+  Baleares, `Atlantic/Canary` for Canarias — so every calculation is in local Spanish
   time regardless of the HA instance's timezone.
 - P3 (valle) for weekends, tariff holidays, and 00:00–08:00.
 - P2 (llano) for 08–10, 14–18, 22–24. P1 (punta) otherwise.
@@ -117,6 +119,40 @@ unresolvable `Europe/Madrid` — into `UpdateFailed`, which during setup becomes
 it needs no price row, and going through the snapshot would make the cheapest value pay
 for a table scan.
 
+### Supply zones
+
+`price/zone.py` maps the three zones Som Energia serves — `peninsula`, `baleares`,
+`canarias` — to an IANA time zone, and that mapping is the **whole** of what a zone
+changes. Everything else is deliberately shared:
+
+- **Prices do not vary by zone.** Zone-dependent pricing is a property of Som Energia's
+  *indexada* tariff, whose energy cost tracks a wholesale market that Baleares and
+  Canarias are not part of. This integration models the *periodos* tariff, quoted once
+  for the whole state; the published figures match `prices.csv` exactly. Don't add a
+  `Zona` column. The only thing Som Energia says about Canarias there is that IGIC
+  applies instead of IVA, and the CSV is pre-tax, so that falls outside the model too.
+- **The hour table does not vary either**, which is why `_period_of` takes no zone.
+  Ceuta y Melilla is the one 2.0TD zone whose hours differ — CNMC Circular 3/2020 art. 7
+  puts its punta at 11–15 and 19–23 — and Som Energia serves "todo el Estado español, a
+  excepción de Ceuta y Melilla", so it is exactly the zone nobody can contract.
+- **Baleares maps to `Europe/Madrid`** and is therefore identical to Península in every
+  respect this integration models. It exists because it is how Som Energia asks members
+  where their supply point is; it is not a copy-paste slip.
+
+So Canarias is the only zone that does anything, and what it does is read the same hours
+on a clock an hour behind. The Circular never states which clock its ranges are counted
+against — "hora oficial", "hora peninsular" and "huso horario" appear nowhere in it — but
+it shifts the ranges for Ceuta y Melilla, which shares the peninsular clock, while giving
+Canarias the unshifted ones. A shift written for the zone needing no conversion and none
+for the zone that does only reads one way: the hours are local.
+
+The zone strings and the `zone` key are persisted on the config entry and must never be
+renamed. Config flow `VERSION` is 2; `async_migrate_entry` stamps version 1 entries as
+peninsular, which is what they were, and the coordinator then reads
+`entry.data[CONF_ZONE]` outright. Don't give that read a default — a `.get(...,
+PENINSULA)` would turn a failed migration into a Canarian install quietly served
+peninsular hours, which is the one failure here that still looks plausible.
+
 ### Async discipline
 
 Home Assistant forbids blocking calls in the event loop. The one blocking operation —
@@ -141,7 +177,7 @@ Import that helper **from `homeassistant.util.dt`, never from `aiozoneinfo`**. H
 wrapper is a two-line delegation to that package, so it is the same lookup and the same
 cache, but `aiozoneinfo` is an internal HA dependency this integration does not declare
 and must not import. The wrapper also returns `None` instead of raising when the zone
-cannot be resolved, which `_madrid_time` turns into a `HomeAssistantError` — letting it
+cannot be resolved, which `_local_time` turns into a `HomeAssistantError` — letting it
 through would reach `astimezone(None)` and silently serve prices in the host's timezone.
 
 Requiring `homeassistant.util.dt.async_get_time_zone` is what first put a floor in

@@ -15,8 +15,11 @@ This is the *electricity* calendar, not the labour one. They happen to overlap
 today, but nothing keeps them in step, which is why the list lives here instead
 of coming from a general-purpose holiday package.
 
-Peninsular Spain only: the Circular sets different periods for the non-peninsular
-systems, which this integration does not model.
+The same nine dates apply in every zone this integration serves. The Circular does set
+a different schedule for one non-peninsular system, Ceuta y Melilla, but it shifts the
+*hours*, not the calendar, and Som Energia does not supply there anyway — see
+price/zone.py. What changes between zones is the clock the hours are read on, which is
+why this list takes no zone.
 """
 
 from datetime import datetime
